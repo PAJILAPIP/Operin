@@ -11,6 +11,9 @@ import 'package:operin/model/stock_item.dart';
 import 'package:operin/data/stock_repository.dart';
 import 'package:operin/data/promotion_repository.dart';
 import 'package:operin/model/promotion.dart';
+import 'package:operin/data/market_repository.dart';
+import 'package:operin/model/market_listing.dart';
+import 'package:operin/model/market_order.dart';
 
 const _welcomeText = 'Welcome back please login to your account';
 
@@ -20,6 +23,7 @@ Future<void> _pumpApp(
   required _FakeProfileRepository profiles,
   _FakeStockRepository? stock,
   _FakePromotionRepository? promotions,
+  _FakeMarketRepository? market,
 }) async {
   // Lebar ponsel, tapi cukup tinggi agar seluruh form onboarding muat
   // tanpa scroll.
@@ -33,6 +37,7 @@ Future<void> _pumpApp(
       profileRepository: profiles,
       stockRepository: stock ?? _FakeStockRepository(),
       promotionRepository: promotions ?? _FakePromotionRepository(),
+      marketRepository: market ?? _FakeMarketRepository(),
       clock: () => _today,
     ),
   );
@@ -444,8 +449,204 @@ void main() {
       expect(promo.endsAt, _today.add(const Duration(hours: 6)));
     });
   });
+
+  group('Marketplace B2B', () {
+    MarketListing listing(
+      int id,
+      String name, {
+      PromotionType type = PromotionType.discount,
+      double? distance,
+      Duration endsIn = const Duration(days: 1),
+      double quantity = 10,
+    }) => MarketListing(
+      promotion: Promotion(
+        id: id,
+        userId: 2,
+        stockId: id,
+        type: type,
+        discountPercent: 50,
+        originalPrice: 10000,
+        quantity: quantity,
+        createdAt: _today,
+        endsAt: _today.add(endsIn),
+      ),
+      stockName: name,
+      category: FoodCategory.roti,
+      unit: StockUnit.pcs,
+      expiryDate: DateTime(2026, 11, 15),
+      sellerName: 'Toko Sebelah',
+      sellerAddress: 'Jl. Sebelah No. 1',
+      sellerWhatsapp: '6281200000000',
+      distanceKm: distance,
+    );
+
+    Future<_FakeMarketRepository> pumpMarket(
+      WidgetTester tester, {
+      List<MarketOrder> orders = const [],
+    }) async {
+      final market = _FakeMarketRepository()
+        ..listings.addAll([
+          listing(1, 'Nasi Kotak',
+              type: PromotionType.flashSale,
+              endsIn: const Duration(hours: 3),
+              distance: 1.2),
+          listing(2, 'Roti Gandum', distance: 2.5),
+          listing(3, 'Kue Jauh', distance: 12), // di luar radius 10 km
+        ])
+        ..orders.addAll(orders);
+      await _pumpApp(
+        tester,
+        auth: _FakeAuthRepository()
+          ..user = _FakeAuthRepository.defaultUser.copyWith(role: 'buyer')
+          ..sessionUserId = 1,
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        market: market,
+      );
+      await tester.tap(find.text('Pasar B2B'));
+      await tester.pumpAndSettle();
+      return market;
+    }
+
+    testWidgets('pembeli melihat flash sale & sale lalu mengajukan pembelian',
+        (tester) async {
+      final market = await pumpMarket(tester);
+
+      // Default: Flash Sale
+      expect(find.text('Nasi Kotak'), findsOneWidget);
+      expect(find.text('Sisa 3 jam'), findsOneWidget);
+      expect(find.text('Roti Gandum'), findsNothing);
+
+      // Sale: yang di luar radius disembunyikan sampai filter dimatikan
+      await tester.tap(find.text('Sale'));
+      await tester.pumpAndSettle();
+      expect(find.text('Roti Gandum'), findsOneWidget);
+      expect(find.text('Kue Jauh'), findsNothing);
+      await tester.tap(find.text('Dalam radius 10 km'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kue Jauh'), findsOneWidget);
+
+      // Detail & pengajuan
+      await tester.tap(find.text('Roti Gandum'));
+      await tester.pumpAndSettle();
+      expect(find.text('Detail Penawaran'), findsOneWidget);
+      expect(find.text('Rp 5.000 /pcs'), findsOneWidget);
+      expect(find.text('Jl. Sebelah No. 1\n2,5 km dari Anda'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Jumlah dibeli (pcs)'),
+        '3',
+      );
+      await tester.pump();
+      expect(find.text('Total: Rp 15.000'), findsOneWidget);
+      await _tapButton(tester, 'Ajukan Pembelian');
+
+      final order = market.orders.single;
+      expect(order.promotionId, 2);
+      expect(order.quantity, 3);
+      expect(order.unitPrice, 5000);
+
+      // Tab Penawaran → Keluar → batalkan
+      await tester.tap(find.text('Penawaran'));
+      await tester.pumpAndSettle();
+      expect(find.text('KELUAR (1)'), findsOneWidget);
+      expect(find.text('Menunggu'), findsOneWidget);
+      await tester.tap(find.text('Batalkan Pengajuan'));
+      await tester.pumpAndSettle();
+      expect(market.orders.single.status, OrderStatus.cancelled);
+      expect(find.text('Dibatalkan'), findsOneWidget);
+    });
+
+    testWidgets('penjual menerima pengajuan masuk', (tester) async {
+      final market = await pumpMarket(
+        tester,
+        orders: [
+          MarketOrder(
+            id: 7,
+            promotionId: 99,
+            buyerId: 3,
+            sellerId: 1, // user yang login
+            quantity: 2,
+            unitPrice: 4000,
+            note: 'Ambil sore',
+            createdAt: _today,
+            updatedAt: _today,
+            stockName: 'Tomat Ceri',
+            unit: StockUnit.kg,
+            buyerName: 'Katering Bunda',
+          ),
+        ],
+      );
+
+      await tester.tap(find.text('Penawaran'));
+      await tester.pumpAndSettle();
+      expect(find.text('MASUK (1)'), findsOneWidget);
+      expect(find.text('Tomat Ceri'), findsOneWidget);
+      expect(find.text('Dari Katering Bunda · 14 Nov 2026'), findsOneWidget);
+      expect(find.text('2 kg × Rp 4.000 = Rp 8.000'), findsOneWidget);
+
+      await tester.tap(find.text('Terima'));
+      await tester.pumpAndSettle();
+      expect(market.orders.single.status, OrderStatus.accepted);
+      expect(find.text('Diterima'), findsOneWidget);
+      expect(find.text('Terima'), findsNothing);
+    });
+  });
 }
 
+class _FakeMarketRepository implements MarketRepository {
+  final List<MarketListing> listings = [];
+  final List<MarketOrder> orders = [];
+  int _nextId = 100;
+
+  @override
+  Future<List<MarketListing>> listListings({
+    required AuthUser viewer,
+    required DateTime now,
+  }) async =>
+      listings.where((l) => l.sellerId != viewer.id).toList();
+
+  @override
+  Future<List<MarketOrder>> listOrders(int userId) async => orders
+      .where((o) => o.buyerId == userId || o.sellerId == userId)
+      .toList();
+
+  @override
+  Future<MarketOrder> createOrder({
+    required int promotionId,
+    required int buyerId,
+    required double quantity,
+    String? note,
+    required DateTime now,
+  }) async {
+    final listing = listings.firstWhere((l) => l.promotionId == promotionId);
+    final order = MarketOrder(
+      id: _nextId++,
+      promotionId: promotionId,
+      buyerId: buyerId,
+      sellerId: listing.sellerId,
+      quantity: quantity,
+      unitPrice: listing.promotion.promoPrice,
+      note: note,
+      createdAt: now,
+      updatedAt: now,
+      stockName: listing.stockName,
+      unit: listing.unit,
+      sellerName: listing.sellerName,
+    );
+    orders.add(order);
+    return order;
+  }
+
+  @override
+  Future<void> updateOrderStatus(
+    int orderId,
+    OrderStatus status, {
+    required DateTime now,
+  }) async {
+    final index = orders.indexWhere((o) => o.id == orderId);
+    orders[index] = orders[index].copyWith(status: status, updatedAt: now);
+  }
+}
 class _FakePromotionRepository implements PromotionRepository {
   final List<Promotion> items = [];
   int _nextId = 1;

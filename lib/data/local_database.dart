@@ -33,7 +33,7 @@ class LocalDatabase {
         : path.join(await getDatabasesPath(), 'operin.db');
     _database = await openDatabase(
       databasePath,
-      version: 5,
+      version: 6,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -57,6 +57,7 @@ class LocalDatabase {
         await _createBusinessProfileTable(database);
         await _createStockTable(database);
         await _createPromotionTable(database);
+        await _createOrderTable(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -90,9 +91,36 @@ class LocalDatabase {
         if (oldVersion < 5) {
           await _createPromotionTable(database);
         }
+        if (oldVersion < 6) {
+          await _createOrderTable(database);
+        }
       },
     );
     return _database!;
+  }
+
+  /// Pengajuan pembelian di Pasar B2B.
+  static Future<void> _createOrderTable(DatabaseExecutor database) async {
+    await database.execute('''
+      CREATE TABLE orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        promotion_id INTEGER NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
+        buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        quantity REAL NOT NULL,
+        unit_price INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX idx_order_buyer ON orders(buyer_id, created_at)',
+    );
+    await database.execute(
+      'CREATE INDEX idx_order_seller ON orders(seller_id, created_at)',
+    );
   }
 
   /// Promo penyelamatan stok (diskon / flash sale).

@@ -5,9 +5,11 @@ import 'core/session/session_controller.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'data/auth_repository.dart';
+import 'data/market_repository.dart';
 import 'data/profile_repository.dart';
 import 'data/promotion_repository.dart';
 import 'data/stock_repository.dart';
+import 'features/market/market_controller.dart';
 import 'features/rescue/promotion_controller.dart';
 import 'features/stock/stock_controller.dart';
 
@@ -18,6 +20,7 @@ class OperinApp extends StatefulWidget {
     this.profileRepository = const SqliteProfileRepository(),
     this.stockRepository = const SqliteStockRepository(),
     this.promotionRepository = const SqlitePromotionRepository(),
+    this.marketRepository = const SqliteMarketRepository(),
     this.clock,
   });
 
@@ -25,6 +28,7 @@ class OperinApp extends StatefulWidget {
   final ProfileRepository profileRepository;
   final StockRepository stockRepository;
   final PromotionRepository promotionRepository;
+  final MarketRepository marketRepository;
 
   /// Sumber waktu "sekarang" (bisa diganti di test). Default: DateTime.now.
   final DateTime Function()? clock;
@@ -51,9 +55,15 @@ class _OperinAppState extends State<OperinApp> {
     session: _session,
     stock: _stock,
   );
+  late final MarketController _market = MarketController(
+    repository: widget.marketRepository,
+    session: _session,
+    clock: widget.clock,
+  );
 
   @override
   void dispose() {
+    _market.dispose();
     _promotions.dispose();
     _stock.dispose();
     _session.dispose();
@@ -76,14 +86,17 @@ class _OperinAppState extends State<OperinApp> {
           controller: _stock,
           child: PromotionScope(
             controller: _promotions,
-            child: ColoredBox(
-              color: AppColors.outerBackground,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: OperinApp.maxContentWidth,
+            child: MarketScope(
+              controller: _market,
+              child: ColoredBox(
+                color: AppColors.outerBackground,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: OperinApp.maxContentWidth,
+                    ),
+                    child: child,
                   ),
-                  child: child,
                 ),
               ),
             ),

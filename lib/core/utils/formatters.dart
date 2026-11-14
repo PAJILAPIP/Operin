@@ -30,6 +30,15 @@ String formatQuantity(double value) {
 String formatDate(DateTime date) =>
     '${date.day} ${_months[date.month - 1]} ${date.year}';
 
+/// Sisa waktu sampai [end]: "Sisa 45 menit", "Sisa 3 jam", "Sisa 2 hari".
+String formatTimeLeft(DateTime end, DateTime now) {
+  final left = end.difference(now);
+  if (left.isNegative) return 'Berakhir';
+  if (left.inHours >= 24) return 'Sisa ${left.inDays} hari';
+  if (left.inHours >= 1) return 'Sisa ${left.inHours} jam';
+  return 'Sisa ${left.inMinutes.clamp(1, 59)} menit';
+}
+
 /// Mengurai input jumlah "2,5" / "2.5" → 2.5. Null jika tidak valid.
 double? parseQuantity(String input) =>
     double.tryParse(input.trim().replaceAll(',', '.'));

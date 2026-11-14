@@ -5,6 +5,7 @@ import '../../features/auth/pages/login_page.dart';
 import '../../features/auth/pages/signup_page.dart';
 import '../../features/auth/pages/splash_page.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
+import '../../features/market/pages/listing_detail_page.dart';
 import '../../features/onboarding/pages/business_profile_page.dart';
 import '../../features/rescue/pages/promotion_form_page.dart';
 import '../../features/rescue/pages/rescue_page.dart';
@@ -40,6 +41,9 @@ class AppRoutes {
   /// Argumen wajib: id stok (int) yang akan dipromosikan.
   static const String promotionForm = '/rescue/promotion';
 
+  /// Argumen wajib: id promo (int) yang tampil di Pasar B2B.
+  static const String listingDetail = '/market/listing';
+
   static Map<String, WidgetBuilder> routes({
     AuthRepository authRepository = const SqliteAuthRepository(),
   }) => {
@@ -60,6 +64,9 @@ class AppRoutes {
     rescue: (_) => const RescuePage(),
     promotionForm: (context) => PromotionFormPage(
       stockId: ModalRoute.of(context)!.settings.arguments! as int,
+    ),
+    listingDetail: (context) => ListingDetailPage(
+      promotionId: ModalRoute.of(context)!.settings.arguments! as int,
     ),
     dashboard: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
