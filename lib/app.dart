@@ -6,16 +6,24 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'data/auth_repository.dart';
 import 'data/profile_repository.dart';
+import 'data/stock_repository.dart';
+import 'features/stock/stock_controller.dart';
 
 class OperinApp extends StatefulWidget {
   const OperinApp({
     super.key,
     this.authRepository = const SqliteAuthRepository(),
     this.profileRepository = const SqliteProfileRepository(),
+    this.stockRepository = const SqliteStockRepository(),
+    this.clock,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
+  final StockRepository stockRepository;
+
+  /// Sumber waktu "sekarang" (bisa diganti di test). Default: DateTime.now.
+  final DateTime Function()? clock;
 
   /// Lebar maksimum tampilan (setara `max-w-md` di Tailwind).
   static const double maxContentWidth = 448;
@@ -29,9 +37,15 @@ class _OperinAppState extends State<OperinApp> {
     repository: widget.authRepository,
     profileRepository: widget.profileRepository,
   );
+  late final StockController _stock = StockController(
+    repository: widget.stockRepository,
+    session: _session,
+    clock: widget.clock,
+  );
 
   @override
   void dispose() {
+    _stock.dispose();
     _session.dispose();
     super.dispose();
   }
@@ -48,13 +62,16 @@ class _OperinAppState extends State<OperinApp> {
       // tetap selebar ponsel dan berada di tengah.
       builder: (context, child) => SessionScope(
         controller: _session,
-        child: ColoredBox(
-          color: AppColors.outerBackground,
-          child: Center(
-            child: ConstrainedBox(
-              constraints:
-                  const BoxConstraints(maxWidth: OperinApp.maxContentWidth),
-              child: child,
+        child: StockScope(
+          controller: _stock,
+          child: ColoredBox(
+            color: AppColors.outerBackground,
+            child: Center(
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: OperinApp.maxContentWidth),
+                child: child,
+              ),
             ),
           ),
         ),

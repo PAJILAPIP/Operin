@@ -6,9 +6,12 @@ import '../../features/auth/pages/signup_page.dart';
 import '../../features/auth/pages/splash_page.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
 import '../../features/onboarding/pages/business_profile_page.dart';
+import '../../features/stock/pages/stock_detail_page.dart';
+import '../../features/stock/pages/stock_form_page.dart';
 import '../../features/survey/models/user_role.dart';
 import '../../features/survey/pages/survey_page.dart';
 import '../../model/auth_user.dart';
+import '../../model/stock_item.dart';
 import '../session/session_controller.dart';
 
 class AppRoutes {
@@ -24,6 +27,12 @@ class AppRoutes {
   /// setelah simpan); tanpa argumen = langkah onboarding.
   static const String businessProfile = '/onboarding/business-profile';
 
+  /// Argumen opsional [StockItem] = mode edit; tanpa argumen = tambah baru.
+  static const String stockForm = '/stock/form';
+
+  /// Argumen wajib: id stok (int).
+  static const String stockDetail = '/stock/detail';
+
   static Map<String, WidgetBuilder> routes({
     AuthRepository authRepository = const SqliteAuthRepository(),
   }) => {
@@ -33,6 +42,13 @@ class AppRoutes {
     survey: (_) => const SurveyPage(),
     businessProfile: (context) => BusinessProfilePage(
       isEditing: ModalRoute.of(context)?.settings.arguments == true,
+    ),
+    stockForm: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      return StockFormPage(initial: args is StockItem ? args : null);
+    },
+    stockDetail: (context) => StockDetailPage(
+      stockId: ModalRoute.of(context)!.settings.arguments! as int,
     ),
     dashboard: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;

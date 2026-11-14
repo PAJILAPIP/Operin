@@ -1,28 +1,36 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../model/stock_item.dart';
 import '../../../widgets/section_title.dart';
+import '../../stock/widgets/stock_status_badge.dart';
 
-class StockWarning {
-  const StockWarning({required this.name, required this.info});
-
-  final String name;
-  final String info;
-}
-
-/// Seksi "Peringatan Stok" berisi daftar stok yang mendekati kedaluwarsa.
+/// Seksi "Peringatan Stok": stok kedaluwarsa/kritis dari data asli.
 class StockWarningSection extends StatelessWidget {
   const StockWarningSection({
     super.key,
     required this.items,
-    this.onAction,
+    required this.statusOf,
+    required this.now,
+    required this.onAction,
+    this.onSeeAll,
+    this.maxItems = 3,
   });
 
-  final List<StockWarning> items;
-  final ValueChanged<StockWarning>? onAction;
+  /// Stok yang perlu tindakan, urut dari paling mendesak.
+  final List<StockItem> items;
+  final StockStatus Function(StockItem) statusOf;
+  final DateTime now;
+  final ValueChanged<StockItem> onAction;
+  final VoidCallback? onSeeAll;
+  final int maxItems;
 
   @override
   Widget build(BuildContext context) {
+    final shown = items.take(maxItems).toList();
+    final hasWarnings = items.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -31,15 +39,15 @@ class StockWarningSection extends StatelessWidget {
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.redSoft,
+              color: hasWarnings ? AppColors.redSoft : AppColors.greenBadge,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              '${items.length} Kritis',
-              style: const TextStyle(
+              hasWarnings ? '${items.length} Kritis' : 'Aman',
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: AppColors.warning,
+                color: hasWarnings ? AppColors.warning : AppColors.primary,
               ),
             ),
           ),
@@ -49,7 +57,9 @@ class StockWarningSection extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.redSoft),
+            border: Border.all(
+              color: hasWarnings ? AppColors.redSoft : AppColors.borderLight,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -58,19 +68,54 @@ class StockWarningSection extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            children: [
-              for (var i = 0; i < items.length; i++)
-                _WarningRow(
-                  item: items[i],
-                  highlighted: i.isOdd,
-                  showDivider: i < items.length - 1,
-                  onAction: onAction == null ? null : () => onAction!(items[i]),
-                ),
-            ],
-          ),
+          child: hasWarnings
+              ? Column(
+                  children: [
+                    for (var i = 0; i < shown.length; i++)
+                      _WarningRow(
+                        item: shown[i],
+                        status: statusOf(shown[i]),
+                        now: now,
+                        highlighted: i.isOdd,
+                        showDivider: i < shown.length - 1 ||
+                            items.length > shown.length,
+                        onAction: () => onAction(shown[i]),
+                      ),
+                    if (items.length > shown.length && onSeeAll != null)
+                      TextButton(
+                        onPressed: onSeeAll,
+                        child: Text(
+                          'Lihat ${items.length - shown.length} lainnya',
+                        ),
+                      ),
+                  ],
+                )
+              : const _AllGood(),
         ),
       ],
+    );
+  }
+}
+
+class _AllGood extends StatelessWidget {
+  const _AllGood();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, color: AppColors.primary),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Tidak ada stok kritis. Semua bahan masih aman.',
+              style: TextStyle(fontSize: 13, color: AppColors.text),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -78,15 +123,19 @@ class StockWarningSection extends StatelessWidget {
 class _WarningRow extends StatelessWidget {
   const _WarningRow({
     required this.item,
+    required this.status,
+    required this.now,
     required this.highlighted,
     required this.showDivider,
-    this.onAction,
+    required this.onAction,
   });
 
-  final StockWarning item;
+  final StockItem item;
+  final StockStatus status;
+  final DateTime now;
   final bool highlighted;
   final bool showDivider;
-  final VoidCallback? onAction;
+  final VoidCallback onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -102,8 +151,7 @@ class _WarningRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              size: 20, color: AppColors.warning),
+          Icon(Icons.warning_amber_rounded, size: 20, color: status.foreground),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -111,6 +159,8 @@ class _WarningRow extends StatelessWidget {
               children: [
                 Text(
                   item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -118,11 +168,12 @@ class _WarningRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  item.info,
-                  style: const TextStyle(
+                  '${item.expiryLabel(now)} · '
+                  '${formatQuantity(item.quantity)} ${item.unit.label}',
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.warning,
+                    color: status.foreground,
                   ),
                 ),
               ],
@@ -130,7 +181,7 @@ class _WarningRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           ElevatedButton(
-            onPressed: onAction ?? () {},
+            onPressed: onAction,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.warning,
               foregroundColor: Colors.white,

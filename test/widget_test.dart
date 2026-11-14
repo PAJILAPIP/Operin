@@ -7,6 +7,8 @@ import 'package:operin/data/profile_repository.dart';
 import 'package:operin/model/auth_user.dart';
 import 'package:operin/model/business_profile.dart';
 import 'package:operin/model/food_category.dart';
+import 'package:operin/model/stock_item.dart';
+import 'package:operin/data/stock_repository.dart';
 
 const _welcomeText = 'Welcome back please login to your account';
 
@@ -14,6 +16,7 @@ Future<void> _pumpApp(
   WidgetTester tester, {
   required _FakeAuthRepository auth,
   required _FakeProfileRepository profiles,
+  _FakeStockRepository? stock,
 }) async {
   // Lebar ponsel, tapi cukup tinggi agar seluruh form onboarding muat
   // tanpa scroll.
@@ -22,10 +25,18 @@ Future<void> _pumpApp(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    OperinApp(authRepository: auth, profileRepository: profiles),
+    OperinApp(
+      authRepository: auth,
+      profileRepository: profiles,
+      stockRepository: stock ?? _FakeStockRepository(),
+      clock: () => _today,
+    ),
   );
   await tester.pumpAndSettle();
 }
+
+/// "Hari ini" yang tetap untuk semua widget test.
+final _today = DateTime(2026, 11, 14, 9);
 
 Future<void> _login(WidgetTester tester, {bool remember = true}) async {
   await tester.enterText(find.byType(TextField).at(0), 'user@operin.test');
@@ -176,6 +187,183 @@ void main() {
     expect(profiles.saved!.businessName, 'Toko Baru');
     expect(find.text('Toko Baru'), findsOneWidget); // kembali ke tab Profil
   });
+
+  group('Manajemen stok', () {
+    _FakeAuthRepository completedAuth() => _FakeAuthRepository()
+      ..user = _FakeAuthRepository.defaultUser.copyWith(role: 'seller')
+      ..sessionUserId = 1;
+
+    testWidgets('tambah, lihat detail, edit, dan hapus stok', (tester) async {
+      final stock = _FakeStockRepository();
+      await _pumpApp(
+        tester,
+        auth: completedAuth(),
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        stock: stock,
+      );
+
+      await tester.tap(find.text('Stok'));
+      await tester.pumpAndSettle();
+      expect(find.text('Belum ada stok'), findsOneWidget);
+
+      // Tambah
+      await tester.tap(find.widgetWithText(FloatingActionButton, 'Tambah Stok'));
+      await tester.pumpAndSettle();
+
+      // Validasi form kosong
+      await _tapButton(tester, 'Simpan Stok');
+      expect(find.text('Nama bahan wajib diisi.'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Nama Bahan'),
+        'Tomat Ceri',
+      );
+      await tester.tap(find.byType(DropdownButtonFormField<FoodCategory>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sayur').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Jumlah'), '25');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Harga per Satuan (Rp)'),
+        '12.000',
+      );
+      await tester.tap(find.widgetWithText(InkWell, 'Tanggal Kedaluwarsa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK')); // default: hari ini + 3
+      await tester.pumpAndSettle();
+      expect(find.text('17 Nov 2026'), findsOneWidget);
+
+      await _tapButton(tester, 'Simpan Stok');
+      expect(stock.items, hasLength(1));
+      expect(stock.items.single.pricePerUnit, 12000);
+      expect(find.text('Tomat Ceri'), findsOneWidget);
+      expect(find.text('H-3'), findsOneWidget);
+      expect(find.text('Segera'), findsOneWidget); // ambang kritis profil = 1
+
+      // Detail
+      await tester.tap(find.text('Tomat Ceri'));
+      await tester.pumpAndSettle();
+      expect(find.text('Detail Stok'), findsOneWidget);
+      expect(find.text('Rp 300.000'), findsOneWidget);
+
+      // Edit
+      await _tapButton(tester, 'Edit Stok');
+      expect(find.text('Edit Stok'), findsOneWidget);
+      await tester.enterText(find.widgetWithText(TextField, '25'), '10');
+      await _tapButton(tester, 'Simpan Perubahan');
+      expect(find.text('Detail Stok'), findsOneWidget);
+      expect(find.text('Rp 120.000'), findsOneWidget);
+      expect(stock.items.single.quantity, 10);
+
+      // Hapus (dengan konfirmasi)
+      await tester.tap(find.text('Hapus Stok'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Hapus'));
+      await tester.pumpAndSettle();
+      expect(stock.items, isEmpty);
+      expect(find.text('Belum ada stok'), findsOneWidget);
+    });
+
+    testWidgets('dasbor menampilkan stok kritis dan tab stok bisa difilter',
+        (tester) async {
+      final stock = _FakeStockRepository()
+        ..seed([
+          _stock('Susu Basi', DateTime(2026, 11, 12)), // kedaluwarsa
+          _stock('Roti Tawar', DateTime(2026, 11, 15)), // kritis (H-1)
+          _stock('Beras', DateTime(2026, 12, 30)), // aman
+        ]);
+      await _pumpApp(
+        tester,
+        auth: completedAuth(),
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        stock: stock,
+      );
+
+      // Dasbor: hanya stok yang perlu tindakan
+      expect(find.text('2 Kritis'), findsOneWidget);
+      expect(find.text('Susu Basi'), findsOneWidget);
+      expect(find.text('Roti Tawar'), findsOneWidget);
+      expect(find.text('Beras'), findsNothing);
+
+      // "Aksi" membuka detail stok
+      await tester.tap(find.text('Aksi').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Kedaluwarsa · Lewat 2 hari'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      // Tab stok: filter status & pencarian
+      await tester.tap(find.text('Stok'));
+      await tester.pumpAndSettle();
+      expect(find.text('3 item'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Aman (1)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aman (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Beras'), findsOneWidget);
+      expect(find.text('Susu Basi'), findsNothing);
+
+      await tester.ensureVisible(find.text('Semua (3)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Semua (3)'));
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Cari nama bahan'),
+        'roti',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Roti Tawar'), findsOneWidget);
+      expect(find.text('Beras'), findsNothing);
+    });
+  });
+}
+
+StockItem _stock(String name, DateTime expiry) => StockItem(
+  userId: 1,
+  name: name,
+  category: FoodCategory.bahanKering,
+  quantity: 5,
+  unit: StockUnit.pcs,
+  pricePerUnit: 10000,
+  expiryDate: expiry,
+  createdAt: DateTime(2026, 11, 1),
+  updatedAt: DateTime(2026, 11, 1),
+);
+
+class _FakeStockRepository implements StockRepository {
+  final List<StockItem> items = [];
+  int _nextId = 1;
+
+  void seed(List<StockItem> seed) {
+    for (final item in seed) {
+      items.add(item.copyWith(id: _nextId++));
+    }
+  }
+
+  @override
+  Future<List<StockItem>> listByUser(int userId) async {
+    final list = items.where((item) => item.userId == userId).toList()
+      ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+    return list;
+  }
+
+  @override
+  Future<StockItem> insert(StockItem item) async {
+    final saved = item.copyWith(id: _nextId++);
+    items.add(saved);
+    return saved;
+  }
+
+  @override
+  Future<StockItem> update(StockItem item) async {
+    final index = items.indexWhere((existing) => existing.id == item.id);
+    items[index] = item;
+    return item;
+  }
+
+  @override
+  Future<void> delete(int id) async =>
+      items.removeWhere((item) => item.id == id);
 }
 
 final _sampleProfile = BusinessProfile(

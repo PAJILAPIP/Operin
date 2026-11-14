@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/routes/app_routes.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../survey/models/user_role.dart';
 import '../tabs/home_tab.dart';
 import '../tabs/market_tab.dart';
 import '../tabs/profile_tab.dart';
 import '../tabs/scan_tab.dart';
+import '../tabs/stock_tab.dart';
 import '../widgets/dashboard_bottom_nav.dart';
 import '../widgets/dashboard_header.dart';
 
@@ -26,6 +29,8 @@ class _DashboardPageState extends State<DashboardPage> {
     switch (_activeTab) {
       case DashboardTab.dashboard:
         return HomeTab(onNavigate: _setTab);
+      case DashboardTab.stok:
+        return const StockTab();
       case DashboardTab.scan:
         return const ScanTab();
       case DashboardTab.pasar:
@@ -45,10 +50,29 @@ class _DashboardPageState extends State<DashboardPage> {
         duration: const Duration(milliseconds: 300),
         child: SingleChildScrollView(
           key: ValueKey(_activeTab),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          // Ruang bawah ekstra agar item terakhir tidak tertutup tombol tambah.
+          padding: EdgeInsets.fromLTRB(
+            20,
+            24,
+            20,
+            _activeTab == DashboardTab.stok ? 96 : 24,
+          ),
           child: _buildTab(),
         ),
       ),
+      floatingActionButton: _activeTab == DashboardTab.stok
+          ? FloatingActionButton.extended(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.stockForm),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'Tambah Stok',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
+          : null,
       bottomNavigationBar: DashboardBottomNav(
         activeTab: _activeTab,
         onTap: _setTab,

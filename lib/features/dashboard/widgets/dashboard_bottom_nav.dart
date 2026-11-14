@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 
 enum DashboardTab {
   dashboard('Dasbor', Icons.home_outlined, Icons.home),
+  stok('Stok', Icons.inventory_2_outlined, Icons.inventory_2),
   scan('Scan AI', Icons.document_scanner_outlined, Icons.document_scanner),
   pasar('Pasar B2B', Icons.storefront_outlined, Icons.storefront),
   profil('Profil', Icons.person_outline, Icons.person);
@@ -45,16 +46,17 @@ class DashboardBottomNav extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: DashboardTab.values
-                .map(
-                  (tab) => _NavItem(
+            children: [
+              // Lebar dibagi rata agar 5 tab tetap muat di layar sempit.
+              for (final tab in DashboardTab.values)
+                Expanded(
+                  child: _NavItem(
                     tab: tab,
                     active: tab == activeTab,
                     onTap: () => onTap(tab),
                   ),
-                )
-                .toList(),
+                ),
+            ],
           ),
         ),
       ),
@@ -87,9 +89,9 @@ class _NavItem extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           scale: active ? 1.1 : 1,
           child: SizedBox(
-            width: 72,
+            width: double.infinity,
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -99,6 +101,7 @@ class _NavItem extends StatelessWidget {
                   Text(
                     tab.label,
                     maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,

@@ -15,6 +15,9 @@ class AppTextField extends StatefulWidget {
     this.isPassword = false,
     this.readOnly = false,
     this.onTap,
+    this.onChanged,
+    this.maxLines = 1,
+    this.label,
   });
 
   final String hint;
@@ -24,6 +27,11 @@ class AppTextField extends StatefulWidget {
   final bool isPassword;
   final bool readOnly;
   final VoidCallback? onTap;
+  final ValueChanged<String>? onChanged;
+  final int maxLines;
+
+  /// Label mengambang di atas field (opsional, selain [hint]).
+  final String? label;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -56,7 +64,8 @@ class _AppTextFieldState extends State<AppTextField> {
       obscureText: _obscure,
       readOnly: widget.readOnly,
       onTap: widget.onTap,
-      maxLines: 1,
+      onChanged: widget.onChanged,
+      maxLines: widget.isPassword ? 1 : widget.maxLines,
       style: const TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w500,
@@ -64,6 +73,7 @@ class _AppTextFieldState extends State<AppTextField> {
       ),
       decoration: InputDecoration(
         hintText: widget.hint,
+        labelText: widget.label,
         suffixIcon: suffix,
       ),
     );

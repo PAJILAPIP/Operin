@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../stock/stock_controller.dart';
 import '../../../widgets/section_title.dart';
 import '../widgets/dashboard_bottom_nav.dart';
 import '../widgets/impact_stats_section.dart';
@@ -13,25 +15,25 @@ class HomeTab extends StatelessWidget {
 
   final ValueChanged<DashboardTab> onNavigate;
 
-  static const _warnings = [
-    StockWarning(
-      name: 'Tomat Ceri Grade B',
-      info: 'H-1 Kedaluwarsa (25kg)',
-    ),
-    StockWarning(
-      name: 'Roti Tawar Gandum',
-      info: 'H-2 Kedaluwarsa (100pcs)',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final stock = StockScope.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const ImpactStatsSection(),
         const SizedBox(height: 24),
-        const StockWarningSection(items: _warnings),
+        StockWarningSection(
+          items: stock.urgentItems,
+          statusOf: stock.statusOf,
+          now: stock.now,
+          onAction: (item) => Navigator.of(context).pushNamed(
+            AppRoutes.stockDetail,
+            arguments: item.id,
+          ),
+          onSeeAll: () => onNavigate(DashboardTab.stok),
+        ),
         const SizedBox(height: 24),
         const SectionTitle('Layanan Operin'),
         ServiceTile(

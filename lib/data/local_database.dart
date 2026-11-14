@@ -33,7 +33,7 @@ class LocalDatabase {
         : path.join(await getDatabasesPath(), 'operin.db');
     _database = await openDatabase(
       databasePath,
-      version: 3,
+      version: 4,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -55,6 +55,7 @@ class LocalDatabase {
         ''');
         await _createSessionTable(database);
         await _createBusinessProfileTable(database);
+        await _createStockTable(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -82,9 +83,34 @@ class LocalDatabase {
             );
           }
         }
+        if (oldVersion < 4) {
+          await _createStockTable(database);
+        }
       },
     );
     return _database!;
+  }
+
+  /// Stok bahan milik tiap user.
+  static Future<void> _createStockTable(DatabaseExecutor database) async {
+    await database.execute('''
+      CREATE TABLE stock_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        price_per_unit INTEGER NOT NULL,
+        expiry_date TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX idx_stock_user_expiry ON stock_items(user_id, expiry_date)',
+    );
   }
 
   /// Profil & preferensi usaha (satu baris per user).
