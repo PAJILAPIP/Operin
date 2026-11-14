@@ -10,6 +10,8 @@ import 'data/match_repository.dart';
 import 'data/profile_repository.dart';
 import 'data/promotion_repository.dart';
 import 'data/stock_repository.dart';
+import 'data/transaction_repository.dart';
+import 'features/impact/transaction_controller.dart';
 import 'features/market/market_controller.dart';
 import 'features/matchmaking/match_controller.dart';
 import 'features/rescue/promotion_controller.dart';
@@ -24,6 +26,7 @@ class OperinApp extends StatefulWidget {
     this.promotionRepository = const SqlitePromotionRepository(),
     this.marketRepository = const SqliteMarketRepository(),
     this.matchRepository = const SqliteMatchRepository(),
+    this.transactionRepository = const SqliteTransactionRepository(),
     this.clock,
   });
 
@@ -33,6 +36,7 @@ class OperinApp extends StatefulWidget {
   final PromotionRepository promotionRepository;
   final MarketRepository marketRepository;
   final MatchRepository matchRepository;
+  final TransactionRepository transactionRepository;
 
   /// Sumber waktu "sekarang" (bisa diganti di test). Default: DateTime.now.
   final DateTime Function()? clock;
@@ -69,9 +73,17 @@ class _OperinAppState extends State<OperinApp> {
     session: _session,
     stock: _stock,
   );
+  late final TransactionController _transactions = TransactionController(
+    repository: widget.transactionRepository,
+    session: _session,
+    stock: _stock,
+    market: _market,
+    match: _match,
+  );
 
   @override
   void dispose() {
+    _transactions.dispose();
     _match.dispose();
     _market.dispose();
     _promotions.dispose();
@@ -100,14 +112,17 @@ class _OperinAppState extends State<OperinApp> {
               controller: _market,
               child: MatchScope(
                 controller: _match,
-                child: ColoredBox(
-                  color: AppColors.outerBackground,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: OperinApp.maxContentWidth,
+                child: TransactionScope(
+                  controller: _transactions,
+                  child: ColoredBox(
+                    color: AppColors.outerBackground,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: OperinApp.maxContentWidth,
+                        ),
+                        child: child,
                       ),
-                      child: child,
                     ),
                   ),
                 ),

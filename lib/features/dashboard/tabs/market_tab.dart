@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/market_repository.dart';
+import '../../../data/transaction_repository.dart';
+import '../../impact/transaction_controller.dart';
 import '../../../model/market_listing.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/app_text_field.dart';
@@ -41,6 +43,8 @@ class _MarketTabState extends State<MarketTab> {
       await action();
       messenger.showSnackBar(SnackBar(content: Text(done)));
     } on MarketException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } on TransactionException catch (error) {
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       debugPrint('Aksi pasar gagal: $error');
@@ -225,6 +229,10 @@ class _MarketTabState extends State<MarketTab> {
               onReject: () => _runAction(
                 () => market.respond(order.id!, accept: false),
                 'Pengajuan ditolak.',
+              ),
+              onComplete: () => _runAction(
+                () => TransactionScope.read(context).completeOrder(order.id!),
+                'Transaksi selesai. Stok & dampak diperbarui.',
               ),
             ),
           ),

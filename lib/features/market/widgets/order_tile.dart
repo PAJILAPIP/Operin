@@ -14,6 +14,7 @@ class OrderTile extends StatelessWidget {
     this.onAccept,
     this.onReject,
     this.onCancel,
+    this.onComplete,
   });
 
   final MarketOrder order;
@@ -21,6 +22,9 @@ class OrderTile extends StatelessWidget {
   final VoidCallback? onAccept;
   final VoidCallback? onReject;
   final VoidCallback? onCancel;
+
+  /// Penjual menandai pesanan yang sudah diterima sebagai selesai.
+  final VoidCallback? onComplete;
 
   static Color statusColor(OrderStatus status) => switch (status) {
     OrderStatus.pending => const Color(0xFFB45309),
@@ -127,6 +131,25 @@ class OrderTile extends StatelessWidget {
                 ),
               ],
             ),
+          ],
+          if (order.status == OrderStatus.accepted) ...[
+            const SizedBox(height: 10),
+            if (incoming && onComplete != null)
+              FilledButton.icon(
+                onPressed: onComplete,
+                icon: const Icon(Icons.task_alt, size: 18),
+                label: const Text('Tandai Selesai'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                ),
+              )
+            else
+              Text(
+                incoming
+                    ? 'Serahkan barang lalu tandai selesai.'
+                    : 'Disetujui. Menunggu penjual menyelesaikan transaksi.',
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
           ],
           if (isPending && !incoming && onCancel != null)
             Align(

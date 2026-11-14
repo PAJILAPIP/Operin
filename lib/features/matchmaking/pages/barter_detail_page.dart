@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/match_repository.dart';
+import '../../../data/transaction_repository.dart';
+import '../../impact/transaction_controller.dart';
 import '../../../model/barter.dart';
 import '../../../widgets/app_card.dart';
 import '../match_controller.dart';
@@ -45,6 +47,8 @@ class _BarterDetailPageState extends State<BarterDetailPage> {
       }
     } on BarterException catch (error) {
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } on TransactionException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       debugPrint('Aksi barter gagal: $error');
       messenger.showSnackBar(
@@ -58,6 +62,34 @@ class _BarterDetailPageState extends State<BarterDetailPage> {
     if (text.isEmpty) return;
     _messageController.clear();
     await _run(() => MatchScope.read(context).sendMessage(widget.barterId, text));
+  }
+
+  Future<void> _confirmComplete(Barter barter) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Selesaikan transaksi?'),
+        content: const Text(
+          'Tandai selesai setelah barang benar-benar diserahkan. Stok kedua '
+          'pihak akan diperbarui otomatis dan tidak bisa dibatalkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Ya, Selesai'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _run(
+      () => TransactionScope.read(context).completeBarter(barter.id!),
+      'Transaksi selesai. Stok & dampak diperbarui.',
+    );
   }
 
   Future<void> _counterOffer(Barter barter) async {
@@ -194,6 +226,22 @@ class _BarterDetailPageState extends State<BarterDetailPage> {
                         ),
                       ),
                     ],
+                  ),
+                ],
+                if (barter.status == BarterStatus.accepted) ...[
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () => _confirmComplete(barter),
+                    icon: const Icon(Icons.task_alt, size: 18),
+                    label: Text(
+                      barter.type == BarterType.donation
+                          ? 'Selesaikan Penyaluran'
+                          : 'Selesaikan Barter',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ],
                 if (barter.status.isOpen && barter.proposerId == me)

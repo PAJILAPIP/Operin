@@ -13,6 +13,8 @@ import 'package:operin/data/promotion_repository.dart';
 import 'package:operin/model/promotion.dart';
 import 'package:operin/data/market_repository.dart';
 import 'package:operin/data/match_repository.dart';
+import 'package:operin/data/transaction_repository.dart';
+import 'package:operin/model/activity_entry.dart';
 import 'package:operin/model/barter.dart';
 import 'package:operin/model/business_category.dart';
 import 'package:operin/model/partner_profile.dart';
@@ -29,6 +31,7 @@ Future<void> _pumpApp(
   _FakePromotionRepository? promotions,
   _FakeMarketRepository? market,
   _FakeMatchRepository? match,
+  _FakeTransactionRepository? transactions,
 }) async {
   // Lebar ponsel, tapi cukup tinggi agar seluruh form onboarding muat
   // tanpa scroll.
@@ -44,6 +47,7 @@ Future<void> _pumpApp(
       promotionRepository: promotions ?? _FakePromotionRepository(),
       marketRepository: market ?? _FakeMarketRepository(),
       matchRepository: match ?? _FakeMatchRepository(),
+      transactionRepository: transactions ?? _FakeTransactionRepository(),
       clock: () => _today,
     ),
   );
@@ -760,8 +764,219 @@ void main() {
       expect(donation.requestedStockId, isNull);
     });
   });
+
+  group('Transaksi & Dampak', () {
+    _FakeAuthRepository completedAuth() => _FakeAuthRepository()
+      ..user = _FakeAuthRepository.defaultUser.copyWith(role: 'seller')
+      ..sessionUserId = 1;
+
+    ActivityEntry entry(
+      ActivityKind kind, {
+      required int saved,
+      required double weight,
+      int counterpart = 2,
+      DateTime? at,
+    }) => ActivityEntry(
+      userId: 1,
+      kind: kind,
+      counterpartId: counterpart,
+      counterpartName: 'Katering Bunda',
+      stockName: 'Roti Gandum',
+      category: FoodCategory.roti,
+      quantity: 4,
+      unit: StockUnit.pcs,
+      amount: kind == ActivityKind.sale ? saved : 0,
+      savedValue: saved,
+      weightKg: weight,
+      referenceType: 'order',
+      referenceId: counterpart,
+      createdAt: at ?? _today,
+    );
+
+    testWidgets('dasbor & halaman dampak memakai data riwayat', (tester) async {
+      final transactions = _FakeTransactionRepository()
+        ..entries.addAll([
+          entry(ActivityKind.sale, saved: 30000, weight: 3),
+          entry(ActivityKind.donationOut, saved: 0, weight: 2, counterpart: 3),
+          entry(ActivityKind.sale,
+              saved: 20000,
+              weight: 1,
+              at: DateTime(2026, 10, 20)),
+        ]);
+      await _pumpApp(
+        tester,
+        auth: completedAuth(),
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        transactions: transactions,
+      );
+
+      // Kartu dasbor: bukan dummy lagi
+      expect(find.text('Rp 50.000'), findsOneWidget);
+      expect(find.text('+50% dibanding bulan lalu'), findsOneWidget);
+      expect(find.text('6 kg'), findsOneWidget);
+      expect(find.text('2 mitra'), findsOneWidget);
+
+      await tester.tap(find.text('Lihat detail'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dampak & Riwayat'), findsOneWidget);
+      expect(find.text('15 kg CO₂e'), findsOneWidget);
+      expect(find.text('NILAI TERSELAMATKAN PER BULAN'), findsOneWidget);
+      expect(find.text('Nov'), findsOneWidget);
+
+      await tester.tap(find.text('Riwayat'));
+      await tester.pumpAndSettle();
+      expect(find.text('14 Nov 2026'), findsOneWidget);
+      expect(find.text('20 Okt 2026'), findsOneWidget);
+      expect(find.text('Penjualan: Roti Gandum'), findsNWidgets(2));
+      expect(find.text('+Rp 30.000'), findsOneWidget);
+    });
+
+    testWidgets('penjual menandai pesanan selesai dari tab Penawaran',
+        (tester) async {
+      final market = _FakeMarketRepository()
+        ..orders.add(MarketOrder(
+          id: 7,
+          promotionId: 99,
+          buyerId: 3,
+          sellerId: 1,
+          quantity: 2,
+          unitPrice: 4000,
+          status: OrderStatus.accepted,
+          createdAt: _today,
+          updatedAt: _today,
+          stockName: 'Tomat Ceri',
+          unit: StockUnit.kg,
+          buyerName: 'Katering Bunda',
+        ));
+      final transactions = _FakeTransactionRepository(market: market);
+      await _pumpApp(
+        tester,
+        auth: completedAuth(),
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        market: market,
+        transactions: transactions,
+      );
+
+      await tester.tap(find.text('Pasar B2B'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Penawaran'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tandai Selesai'));
+      await tester.pumpAndSettle();
+
+      expect(transactions.completedOrders, [7]);
+      expect(market.orders.single.status, OrderStatus.completed);
+      expect(find.text('Selesai'), findsOneWidget);
+      expect(find.text('Tandai Selesai'), findsNothing);
+
+      // Dampak di dasbor ikut diperbarui
+      await tester.tap(find.text('Dasbor'));
+      await tester.pumpAndSettle();
+      expect(find.text('Rp 8.000'), findsOneWidget);
+      expect(find.text('1 mitra'), findsOneWidget);
+    });
+
+    testWidgets('barter yang disepakati bisa diselesaikan', (tester) async {
+      final match = _FakeMatchRepository()
+        ..barters.add(Barter(
+          id: 9,
+          type: BarterType.barter,
+          proposerId: 1,
+          receiverId: 2,
+          offeredStockId: 1,
+          offeredQuantity: 2,
+          requestedNote: 'Gula 1 kg',
+          status: BarterStatus.accepted,
+          lastActorId: 2,
+          createdAt: _today,
+          updatedAt: _today,
+          receiverName: 'Dapur Bunda',
+          offeredStockName: 'Roti Tawar',
+          offeredUnit: StockUnit.pcs,
+        ));
+      final transactions = _FakeTransactionRepository(match: match);
+      await _pumpApp(
+        tester,
+        auth: completedAuth(),
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        match: match,
+        transactions: transactions,
+      );
+
+      await tester.tap(find.text('Matchmaking B2B'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Barter'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dapur Bunda'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Selesaikan Barter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Selesaikan transaksi?'), findsOneWidget);
+      await tester.tap(find.text('Ya, Selesai'));
+      await tester.pumpAndSettle();
+
+      expect(transactions.completedBarters, [9]);
+      expect(match.barters.single.status, BarterStatus.completed);
+      expect(find.text('Selesaikan Barter'), findsNothing);
+    });
+  });
 }
 
+class _FakeTransactionRepository implements TransactionRepository {
+  _FakeTransactionRepository({this.market, this.match});
+
+  final _FakeMarketRepository? market;
+  final _FakeMatchRepository? match;
+  final List<ActivityEntry> entries = [];
+  final List<int> completedOrders = [];
+  final List<int> completedBarters = [];
+
+  @override
+  Future<List<ActivityEntry>> listActivity(int userId) async =>
+      entries.where((e) => e.userId == userId).toList();
+
+  @override
+  Future<void> completeOrder(
+    int orderId, {
+    required int actorId,
+    required DateTime now,
+  }) async {
+    completedOrders.add(orderId);
+    final orders = market!.orders;
+    final i = orders.indexWhere((o) => o.id == orderId);
+    final order = orders[i];
+    orders[i] = order.copyWith(status: OrderStatus.completed);
+    entries.add(ActivityEntry(
+      userId: actorId,
+      kind: ActivityKind.sale,
+      counterpartId: order.buyerId,
+      counterpartName: order.buyerName ?? 'Pembeli',
+      stockName: order.stockName ?? 'Stok',
+      category: FoodCategory.sayur,
+      quantity: order.quantity,
+      unit: order.unit ?? StockUnit.kg,
+      amount: order.totalPrice,
+      savedValue: order.totalPrice,
+      weightKg: order.quantity,
+      referenceType: 'order',
+      referenceId: orderId,
+      createdAt: now,
+    ));
+  }
+
+  @override
+  Future<void> completeBarter(
+    int barterId, {
+    required int actorId,
+    required DateTime now,
+  }) async {
+    completedBarters.add(barterId);
+    final barters = match!.barters;
+    final i = barters.indexWhere((b) => b.id == barterId);
+    barters[i] = barters[i].copyWith(status: BarterStatus.completed);
+  }
+}
 PartnerProfile _partnerProfile(
   int id,
   String name, {

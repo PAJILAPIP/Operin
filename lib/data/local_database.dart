@@ -39,7 +39,7 @@ class LocalDatabase {
         : path.join(await getDatabasesPath(), fileName);
     _database = await openDatabase(
       databasePath,
-      version: 7,
+      version: 8,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -65,6 +65,7 @@ class LocalDatabase {
         await _createPromotionTable(database);
         await _createOrderTable(database);
         await _createBarterTables(database);
+        await _createActivityTable(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -104,9 +105,39 @@ class LocalDatabase {
         if (oldVersion < 7) {
           await _createBarterTables(database);
         }
+        if (oldVersion < 8) {
+          await _createActivityTable(database);
+        }
       },
     );
     return _database!;
+  }
+
+  /// Riwayat aktivitas (transaksi selesai) per user. Sengaja tanpa foreign
+  /// key ke stok/order/barter: berisi salinan data agar riwayat tetap utuh.
+  static Future<void> _createActivityTable(DatabaseExecutor database) async {
+    await database.execute('''
+      CREATE TABLE activity_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        counterpart_id INTEGER NOT NULL,
+        counterpart_name TEXT NOT NULL,
+        stock_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        saved_value INTEGER NOT NULL,
+        weight_kg REAL NOT NULL,
+        reference_type TEXT NOT NULL,
+        reference_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX idx_activity_user ON activity_log(user_id, created_at)',
+    );
   }
 
   /// Barter/donasi antar-UMKM beserta pesan negosiasinya.

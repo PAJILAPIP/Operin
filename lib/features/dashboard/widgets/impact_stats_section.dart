@@ -1,37 +1,62 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/section_title.dart';
+import '../../impact/impact_calculator.dart';
+import '../../impact/pages/impact_page.dart';
 
-/// Seksi "Dampak Bisnis Anda" (trust indicators).
+/// Seksi "Dampak Bisnis Anda", dihitung dari riwayat transaksi selesai.
 class ImpactStatsSection extends StatelessWidget {
-  const ImpactStatsSection({super.key});
+  const ImpactStatsSection({
+    super.key,
+    required this.summary,
+    required this.onTap,
+  });
+
+  final ImpactSummary summary;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionTitle('Dampak Bisnis Anda'),
-        const _SavingsCard(),
+        SectionTitle(
+          'Dampak Bisnis Anda',
+          trailing: GestureDetector(
+            onTap: onTap,
+            child: const Text(
+              'Lihat detail',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ),
+        _SavingsCard(summary: summary, onTap: onTap),
         const SizedBox(height: 12),
         Row(
-          children: const [
+          children: [
             Expanded(
               child: _StatCard(
                 icon: Icons.delete_outline,
                 label: 'Limbah Dicegah',
-                value: '450 kg',
+                value: '${formatQuantity(summary.wasteKg)} kg',
+                onTap: onTap,
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
                 icon: Icons.people_outline,
                 label: 'UMKM Terbantu',
-                value: '120',
-                unit: ' orang',
+                value: '${summary.partnersHelped}',
+                unit: ' mitra',
+                onTap: onTap,
               ),
             ),
           ],
@@ -42,11 +67,18 @@ class ImpactStatsSection extends StatelessWidget {
 }
 
 class _SavingsCard extends StatelessWidget {
-  const _SavingsCard();
+  const _SavingsCard({required this.summary, required this.onTap});
+
+  final ImpactSummary summary;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final change = summary.monthlyChangePercent;
+    final negative = change != null && change < 0;
+
     return AppCard(
+      onTap: onTap,
       padding: EdgeInsets.zero,
       child: Stack(
         children: [
@@ -93,26 +125,32 @@ class _SavingsCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Rp 15.450.000',
-                  style: TextStyle(
+                Text(
+                  formatRupiah(summary.savedValue),
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: AppColors.text,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.sell_outlined,
-                        size: 12, color: AppColors.primary),
-                    SizedBox(width: 4),
-                    Text(
-                      '+12% bulan ini',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
+                    Icon(
+                      negative ? Icons.trending_down : Icons.trending_up,
+                      size: 14,
+                      color: negative ? AppColors.warning : AppColors.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        monthlyChangeLabel(summary),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              negative ? AppColors.warning : AppColors.primary,
+                        ),
                       ),
                     ),
                   ],
@@ -131,6 +169,7 @@ class _StatCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    required this.onTap,
     this.unit,
   });
 
@@ -138,10 +177,12 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final String? unit;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

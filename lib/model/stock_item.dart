@@ -2,17 +2,21 @@ import 'food_category.dart';
 
 /// Satuan jumlah stok.
 enum StockUnit {
-  kg('kg'),
-  gram('gram'),
-  liter('liter'),
-  pcs('pcs'),
-  pack('pack'),
-  ikat('ikat'),
-  porsi('porsi');
+  kg('kg', 1),
+  gram('gram', 0.001),
+  liter('liter', 1),
+  pcs('pcs', 0.2),
+  pack('pack', 0.5),
+  ikat('ikat', 0.25),
+  porsi('porsi', 0.4);
 
-  const StockUnit(this.label);
+  const StockUnit(this.label, this.estimatedKg);
 
   final String label;
+
+  /// Perkiraan berat per satuan (kg) untuk menghitung limbah yang dicegah.
+  /// Satuan non-berat (pcs, pack, ikat, porsi) memakai rata-rata kasar.
+  final double estimatedKg;
 
   static StockUnit fromName(String? name) {
     for (final value in values) {

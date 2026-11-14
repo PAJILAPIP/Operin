@@ -103,9 +103,12 @@ class ProfileTab extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               ProfileMenuTile(
-                icon: Icons.handshake_outlined,
-                label: 'Riwayat Matchmaking B2B',
-                onTap: () {},
+                icon: Icons.history,
+                label: 'Riwayat Aktivitas',
+                onTap: () => Navigator.of(context).pushNamed(
+                  AppRoutes.impact,
+                  arguments: true,
+                ),
               ),
               const SizedBox(height: 16),
               ProfileMenuTile(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../model/stock_item.dart';
+import '../../impact/transaction_controller.dart';
 import '../../matchmaking/match_controller.dart';
 import '../../rescue/promotion_controller.dart';
 import '../../stock/stock_controller.dart';
@@ -39,7 +40,10 @@ class HomeTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ImpactStatsSection(),
+        ImpactStatsSection(
+          summary: TransactionScope.of(context).summary,
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.impact),
+        ),
         const SizedBox(height: 24),
         StockWarningSection(
           items: stock.urgentItems,

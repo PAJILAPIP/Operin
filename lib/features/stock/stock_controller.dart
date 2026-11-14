@@ -27,8 +27,11 @@ class StockController extends ChangeNotifier {
   bool _loading = false;
   Object? _error;
 
-  /// Semua stok, urut dari yang paling cepat kedaluwarsa.
-  List<StockItem> get items => _items;
+  /// Stok yang masih ada (jumlah > 0), urut dari yang paling cepat
+  /// kedaluwarsa. Stok yang habis lewat transaksi tetap disimpan di database
+  /// (dirujuk riwayat order/barter) tetapi tidak ditampilkan.
+  List<StockItem> get items =>
+      _items.where((item) => item.quantity > 0).toList();
   bool get isLoading => _loading;
   Object? get error => _error;
   DateTime get now => _clock();
@@ -42,7 +45,7 @@ class StockController extends ChangeNotifier {
 
   /// Stok kedaluwarsa atau kritis.
   List<StockItem> get urgentItems =>
-      _items.where((item) => statusOf(item).needsAction).toList();
+      items.where((item) => statusOf(item).needsAction).toList();
 
   StockItem? byId(int id) {
     for (final item in _items) {

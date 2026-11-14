@@ -5,6 +5,7 @@ import '../../features/auth/pages/login_page.dart';
 import '../../features/auth/pages/signup_page.dart';
 import '../../features/auth/pages/splash_page.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
+import '../../features/impact/pages/impact_page.dart';
 import '../../features/market/pages/listing_detail_page.dart';
 import '../../features/matchmaking/pages/barter_detail_page.dart';
 import '../../features/matchmaking/pages/barter_form_page.dart';
@@ -57,6 +58,9 @@ class AppRoutes {
   /// Argumen wajib: id barter (int).
   static const String barterDetail = '/match/barter';
 
+  /// Argumen opsional: `true` = langsung buka tab Riwayat.
+  static const String impact = '/impact';
+
   static Map<String, WidgetBuilder> routes({
     AuthRepository authRepository = const SqliteAuthRepository(),
   }) => {
@@ -89,6 +93,9 @@ class AppRoutes {
     ),
     barterDetail: (context) => BarterDetailPage(
       barterId: ModalRoute.of(context)!.settings.arguments! as int,
+    ),
+    impact: (context) => ImpactPage(
+      showHistory: ModalRoute.of(context)?.settings.arguments == true,
     ),
     dashboard: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
