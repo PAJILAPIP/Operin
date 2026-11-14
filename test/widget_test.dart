@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,6 +23,9 @@ import 'package:operin/model/business_category.dart';
 import 'package:operin/model/partner_profile.dart';
 import 'package:operin/model/market_listing.dart';
 import 'package:operin/model/market_order.dart';
+import 'package:operin/data/scan_service.dart';
+import 'package:operin/features/scanner/scan_image_service.dart';
+import 'package:operin/model/scan_result.dart';
 
 const _welcomeText = 'Welcome back please login to your account';
 
@@ -32,6 +38,8 @@ Future<void> _pumpApp(
   _FakeMarketRepository? market,
   _FakeMatchRepository? match,
   _FakeTransactionRepository? transactions,
+  _FakeScanService? scan,
+  _FakeScanImageService? images,
 }) async {
   // Lebar ponsel, tapi cukup tinggi agar seluruh form onboarding muat
   // tanpa scroll.
@@ -48,6 +56,8 @@ Future<void> _pumpApp(
       marketRepository: market ?? _FakeMarketRepository(),
       matchRepository: match ?? _FakeMatchRepository(),
       transactionRepository: transactions ?? _FakeTransactionRepository(),
+      scanService: scan ?? _FakeScanService(),
+      scanImageService: images ?? _FakeScanImageService(),
       clock: () => _today,
     ),
   );
@@ -921,8 +931,225 @@ void main() {
       expect(find.text('Selesaikan Barter'), findsNothing);
     });
   });
+
+  group('AI Stock Scanner', () {
+    _FakeAuthRepository completedAuth() => _FakeAuthRepository()
+      ..user = _FakeAuthRepository.defaultUser.copyWith(role: 'seller')
+      ..sessionUserId = 1;
+
+    Future<void> openScanTab(
+      WidgetTester tester, {
+      required _FakeScanService scan,
+      required _FakeScanImageService images,
+      _FakeStockRepository? stock,
+    }) async {
+      await _pumpApp(
+        tester,
+        auth: completedAuth(),
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        stock: stock,
+        scan: scan,
+        images: images,
+      );
+      await tester.tap(find.text('Scan AI').last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('foto dari galeri → hasil AI → tambah ke stok', (tester) async {
+      final scan = _FakeScanService();
+      final images = _FakeScanImageService();
+      final stock = _FakeStockRepository();
+      await openScanTab(tester, scan: scan, images: images, stock: stock);
+
+      expect(find.text('Belum ada foto'), findsOneWidget);
+      expect(find.textContaining('API key belum diatur'), findsNothing);
+
+      await tester.tap(find.text('Galeri'));
+      await tester.pumpAndSettle();
+
+      expect(images.picked, [ScanImageSource.gallery]);
+      expect(scan.calls, 1);
+      expect(scan.lastToday, _today);
+      expect(find.text('Hasil Analisis (2 bahan)'), findsOneWidget);
+      expect(find.text('Tomat'), findsOneWidget);
+      expect(find.text('Grade B'), findsOneWidget);
+      expect(find.text('Kedaluwarsa 17 Nov 2026'), findsOneWidget);
+      expect(find.text('Perkiraan AI'), findsOneWidget);
+      expect(find.text('Dari label'), findsOneWidget);
+      expect(find.text('Tidak Layak'), findsOneWidget);
+
+      final addButton = find.text('Tambah ke Stok').first;
+      await tester.ensureVisible(addButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+
+      // Form terisi otomatis dari hasil scan
+      expect(find.text('Tambah Stok'), findsOneWidget);
+      expect(find.textContaining('Diisi dari hasil Scan AI'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Tomat'), findsOneWidget);
+      expect(find.text('17 Nov 2026'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Harga per Satuan (Rp)'),
+        '8000',
+      );
+      await _tapButton(tester, 'Simpan Stok');
+
+      final saved = stock.items.single;
+      expect(saved.name, 'Tomat');
+      expect(saved.category, FoodCategory.sayur);
+      expect(saved.quantity, 2.5);
+      expect(saved.unit, StockUnit.kg);
+      expect(saved.expiryDate, DateTime(2026, 11, 17));
+      expect(saved.notes, startsWith('Scan AI: Grade B'));
+      expect(find.text('Hasil Analisis (2 bahan)'), findsOneWidget);
+    });
+
+    testWidgets('kamera: penjelasan izin → izin diberikan → analisis',
+        (tester) async {
+      final scan = _FakeScanService();
+      final images = _FakeScanImageService()
+        ..status = CameraAccess.denied
+        ..requestResult = CameraAccess.granted;
+      await openScanTab(tester, scan: scan, images: images);
+
+      await tester.tap(find.text('Ambil Foto'));
+      await tester.pumpAndSettle();
+      expect(find.text('Izinkan akses kamera'), findsOneWidget);
+      await tester.tap(find.text('Izinkan'));
+      await tester.pumpAndSettle();
+
+      expect(images.requests, 1);
+      expect(images.picked, [ScanImageSource.camera]);
+      expect(find.text('Tomat'), findsOneWidget);
+    });
+
+    testWidgets('kamera: "Nanti" tidak meminta izin sistem', (tester) async {
+      final images = _FakeScanImageService()..status = CameraAccess.denied;
+      await openScanTab(tester, scan: _FakeScanService(), images: images);
+
+      await tester.tap(find.text('Ambil Foto'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nanti'));
+      await tester.pumpAndSettle();
+
+      expect(images.requests, 0);
+      expect(images.picked, isEmpty);
+    });
+
+    testWidgets('kamera ditolak permanen → arahkan ke Pengaturan',
+        (tester) async {
+      final images = _FakeScanImageService()
+        ..status = CameraAccess.permanentlyDenied;
+      await openScanTab(tester, scan: _FakeScanService(), images: images);
+
+      await tester.tap(find.text('Ambil Foto'));
+      await tester.pumpAndSettle();
+      expect(find.text('Akses kamera diblokir'), findsOneWidget);
+      await tester.tap(find.text('Buka Pengaturan'));
+      await tester.pumpAndSettle();
+
+      expect(images.settingsOpened, isTrue);
+      expect(images.picked, isEmpty);
+    });
+
+    testWidgets('API key belum diatur → banner & pesan error', (tester) async {
+      final scan = _FakeScanService()..configured = false;
+      await openScanTab(
+        tester,
+        scan: scan,
+        images: _FakeScanImageService(),
+      );
+
+      expect(find.textContaining('API key belum diatur'), findsOneWidget);
+      await tester.tap(find.text('Galeri'));
+      await tester.pumpAndSettle();
+      expect(find.text('API key AI belum diatur.'), findsOneWidget);
+      expect(find.text('Coba Lagi'), findsOneWidget);
+      expect(find.text('Hasil Analisis (2 bahan)'), findsNothing);
+    });
+  });
+}
+/// PNG 1x1 transparan.
+final _pngBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+);
+
+class _FakeScanService implements StockScanService {
+  bool configured = true;
+  int calls = 0;
+  DateTime? lastToday;
+
+  @override
+  bool get isConfigured => configured;
+
+  @override
+  Future<ScanResult> analyze(
+    Uint8List imageBytes, {
+    required String mimeType,
+    required DateTime today,
+  }) async {
+    calls++;
+    lastToday = today;
+    if (!configured) {
+      throw const ScanException('API key AI belum diatur.');
+    }
+    return ScanResult(
+      isFood: true,
+      summary: 'Sayur dan susu kemasan',
+      items: [
+        ScannedItem(
+          name: 'Tomat',
+          category: FoodCategory.sayur,
+          quality: ScanQuality.gradeB,
+          freshnessScore: 72,
+          quantity: 2.5,
+          unit: StockUnit.kg,
+          expiryDate: DateTime(2026, 11, 17),
+          expirySource: ExpirySource.estimate,
+          reason: 'Sedikit lunak',
+          recommendation: 'Jual dengan diskon',
+        ),
+        ScannedItem(
+          name: 'Susu UHT',
+          category: FoodCategory.susuOlahan,
+          quality: ScanQuality.rejected,
+          freshnessScore: 10,
+          unit: StockUnit.pcs,
+          expiryDate: DateTime(2026, 11, 10),
+          expirySource: ExpirySource.label,
+        ),
+      ],
+    );
+  }
 }
 
+class _FakeScanImageService implements ScanImageService {
+  CameraAccess status = CameraAccess.granted;
+  CameraAccess requestResult = CameraAccess.granted;
+  int requests = 0;
+  bool settingsOpened = false;
+  final picked = <ScanImageSource>[];
+
+  @override
+  Future<CameraAccess> cameraStatus() async => status;
+
+  @override
+  Future<CameraAccess> requestCamera() async {
+    requests++;
+    return status = requestResult;
+  }
+
+  @override
+  Future<bool> openSettings() async => settingsOpened = true;
+
+  @override
+  Future<PickedImage?> pick(ScanImageSource source) async {
+    picked.add(source);
+    return PickedImage(bytes: _pngBytes, mimeType: 'image/png');
+  }
+}
 class _FakeTransactionRepository implements TransactionRepository {
   _FakeTransactionRepository({this.market, this.match});
 

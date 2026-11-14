@@ -34,7 +34,8 @@ class AppRoutes {
   /// setelah simpan); tanpa argumen = langkah onboarding.
   static const String businessProfile = '/onboarding/business-profile';
 
-  /// Argumen opsional [StockItem] = mode edit; tanpa argumen = tambah baru.
+  /// Argumen opsional [StockItem] = mode edit; [StockDraft] = tambah baru
+  /// dengan isian awal; tanpa argumen = tambah baru.
   static const String stockForm = '/stock/form';
 
   /// Argumen wajib: id stok (int).
@@ -73,7 +74,10 @@ class AppRoutes {
     ),
     stockForm: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      return StockFormPage(initial: args is StockItem ? args : null);
+      return StockFormPage(
+        initial: args is StockItem ? args : null,
+        draft: args is StockDraft ? args : null,
+      );
     },
     stockDetail: (context) => StockDetailPage(
       stockId: ModalRoute.of(context)!.settings.arguments! as int,

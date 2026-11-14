@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Operin memakai kamera untuk memotret bahan baku agar AI dapat menilai kualitas dan tanggal kedaluwarsanya.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Operin membuka galeri agar Anda dapat memilih foto bahan baku untuk dianalisis AI.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Operin memakai lokasi untuk menandai lokasi usaha Anda di peta.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

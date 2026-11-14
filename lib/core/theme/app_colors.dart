@@ -25,4 +25,6 @@ class AppColors {
   static const Color redSoft = Color(0xFFFEE2E2); // red-100
   static const Color blueSoft = Color(0xFFDBEAFE); // blue-100
   static const Color blueText = Color(0xFF1D4ED8); // blue-700
+  static const Color amberSoft = Color(0xFFFEF3C7); // amber-100
+  static const Color amberText = Color(0xFFB45309); // amber-700
 }

@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Secret lokal (API key AI) - jangan di-commit. Contoh: env.example.json
+env.json

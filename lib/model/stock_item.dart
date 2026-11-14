@@ -166,3 +166,23 @@ class StockItem {
       '${date.month.toString().padLeft(2, '0')}-'
       '${date.day.toString().padLeft(2, '0')}';
 }
+
+/// Data awal form "Tambah Stok" (mis. dari hasil Scan AI). Semua field
+/// opsional; user tetap memeriksa dan melengkapi sebelum menyimpan.
+class StockDraft {
+  const StockDraft({
+    this.name,
+    this.category,
+    this.quantity,
+    this.unit,
+    this.expiryDate,
+    this.notes,
+  });
+
+  final String? name;
+  final FoodCategory? category;
+  final double? quantity;
+  final StockUnit? unit;
+  final DateTime? expiryDate;
+  final String? notes;
+}

@@ -10,11 +10,14 @@ import 'data/match_repository.dart';
 import 'data/profile_repository.dart';
 import 'data/promotion_repository.dart';
 import 'data/stock_repository.dart';
+import 'data/scan_service.dart';
 import 'data/transaction_repository.dart';
 import 'features/impact/transaction_controller.dart';
 import 'features/market/market_controller.dart';
 import 'features/matchmaking/match_controller.dart';
 import 'features/rescue/promotion_controller.dart';
+import 'features/scanner/scan_image_service.dart';
+import 'features/scanner/scanner_scope.dart';
 import 'features/stock/stock_controller.dart';
 
 class OperinApp extends StatefulWidget {
@@ -27,6 +30,8 @@ class OperinApp extends StatefulWidget {
     this.marketRepository = const SqliteMarketRepository(),
     this.matchRepository = const SqliteMatchRepository(),
     this.transactionRepository = const SqliteTransactionRepository(),
+    this.scanService,
+    this.scanImageService,
     this.clock,
   });
 
@@ -37,6 +42,12 @@ class OperinApp extends StatefulWidget {
   final MarketRepository marketRepository;
   final MatchRepository matchRepository;
   final TransactionRepository transactionRepository;
+
+  /// Analisis foto AI. Default: Groq/Grok (API key dari --dart-define).
+  final StockScanService? scanService;
+
+  /// Izin kamera + pemilih foto. Default: kamera/galeri perangkat.
+  final ScanImageService? scanImageService;
 
   /// Sumber waktu "sekarang" (bisa diganti di test). Default: DateTime.now.
   final DateTime Function()? clock;
@@ -81,6 +92,11 @@ class _OperinAppState extends State<OperinApp> {
     match: _match,
   );
 
+  late final StockScanService _scanService =
+      widget.scanService ?? AiScanService();
+  late final ScanImageService _scanImageService =
+      widget.scanImageService ?? DeviceScanImageService();
+
   @override
   void dispose() {
     _transactions.dispose();
@@ -114,14 +130,18 @@ class _OperinAppState extends State<OperinApp> {
                 controller: _match,
                 child: TransactionScope(
                   controller: _transactions,
-                  child: ColoredBox(
-                    color: AppColors.outerBackground,
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: OperinApp.maxContentWidth,
+                  child: ScannerScope(
+                    scanService: _scanService,
+                    imageService: _scanImageService,
+                    child: ColoredBox(
+                      color: AppColors.outerBackground,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: OperinApp.maxContentWidth,
+                          ),
+                          child: child,
                         ),
-                        child: child,
                       ),
                     ),
                   ),

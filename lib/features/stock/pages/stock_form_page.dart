@@ -9,11 +9,13 @@ import '../../../widgets/app_text_field.dart';
 import '../../../widgets/primary_button.dart';
 import '../stock_controller.dart';
 
-/// Form tambah stok baru, atau edit jika [initial] diisi.
+/// Form tambah stok baru, atau edit jika [initial] diisi. [draft] mengisi
+/// awal form tambah (mis. dari Scan AI).
 class StockFormPage extends StatefulWidget {
-  const StockFormPage({super.key, this.initial});
+  const StockFormPage({super.key, this.initial, this.draft});
 
   final StockItem? initial;
+  final StockDraft? draft;
 
   bool get isEditing => initial != null;
 
@@ -22,22 +24,28 @@ class StockFormPage extends StatefulWidget {
 }
 
 class _StockFormPageState extends State<StockFormPage> {
-  late final _nameController =
-      TextEditingController(text: widget.initial?.name);
+  late final _nameController = TextEditingController(
+    text: widget.initial?.name ?? widget.draft?.name,
+  );
   late final _quantityController = TextEditingController(
-    text: widget.initial == null
-        ? null
-        : formatQuantity(widget.initial!.quantity),
+    text: switch (widget.initial?.quantity ?? widget.draft?.quantity) {
+      final quantity? => formatQuantity(quantity),
+      null => null,
+    },
   );
   late final _priceController = TextEditingController(
     text: widget.initial?.pricePerUnit.toString(),
   );
-  late final _notesController =
-      TextEditingController(text: widget.initial?.notes);
+  late final _notesController = TextEditingController(
+    text: widget.initial?.notes ?? widget.draft?.notes,
+  );
 
-  late FoodCategory? _category = widget.initial?.category;
-  late StockUnit _unit = widget.initial?.unit ?? StockUnit.kg;
-  late DateTime? _expiryDate = widget.initial?.expiryDate;
+  late FoodCategory? _category =
+      widget.initial?.category ?? widget.draft?.category;
+  late StockUnit _unit =
+      widget.initial?.unit ?? widget.draft?.unit ?? StockUnit.kg;
+  late DateTime? _expiryDate =
+      widget.initial?.expiryDate ?? widget.draft?.expiryDate;
   bool _isSaving = false;
 
   @override
@@ -57,8 +65,9 @@ class _StockFormPageState extends State<StockFormPage> {
       context: context,
       initialDate: initial,
       // Boleh tanggal lampau untuk mencatat stok yang sudah kedaluwarsa.
-      firstDate: (initial.isBefore(today) ? initial : today)
-          .subtract(const Duration(days: 365)),
+      firstDate: (initial.isBefore(today) ? initial : today).subtract(
+        const Duration(days: 365),
+      ),
       lastDate: today.add(const Duration(days: 365 * 3)),
       helpText: 'Tanggal kedaluwarsa',
     );
@@ -166,6 +175,10 @@ class _StockFormPageState extends State<StockFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.draft != null && !widget.isEditing) ...[
+                const _DraftBanner(),
+                const SizedBox(height: 16),
+              ],
               AppTextField(
                 controller: _nameController,
                 label: 'Nama Bahan',
@@ -186,8 +199,7 @@ class _StockFormPageState extends State<StockFormPage> {
                       value: category,
                       child: Row(
                         children: [
-                          Icon(category.icon,
-                              size: 18, color: AppColors.muted),
+                          Icon(category.icon, size: 18, color: AppColors.muted),
                           const SizedBox(width: 10),
                           Text(category.label),
                         ],
@@ -242,10 +254,7 @@ class _StockFormPageState extends State<StockFormPage> {
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
-              _DateField(
-                value: _expiryDate,
-                onTap: _pickExpiryDate,
-              ),
+              _DateField(value: _expiryDate, onTap: _pickExpiryDate),
               const SizedBox(height: 16),
               AppTextField(
                 controller: _notesController,
@@ -258,8 +267,8 @@ class _StockFormPageState extends State<StockFormPage> {
                 label: _isSaving
                     ? 'Menyimpan...'
                     : widget.isEditing
-                        ? 'Simpan Perubahan'
-                        : 'Simpan Stok',
+                    ? 'Simpan Perubahan'
+                    : 'Simpan Stok',
                 onPressed: _isSaving ? null : _save,
               ),
             ],
@@ -295,6 +304,34 @@ class _DateField extends StatelessWidget {
             color: AppColors.text,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Pengingat bahwa form diisi otomatis oleh AI.
+class _DraftBanner extends StatelessWidget {
+  const _DraftBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.greenSoft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Diisi dari hasil Scan AI. Periksa kembali, lalu lengkapi harga.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.text),
+            ),
+          ),
+        ],
       ),
     );
   }
