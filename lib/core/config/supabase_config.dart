@@ -12,12 +12,12 @@ class SupabaseConfig {
 
   static const String url = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://ISI-PROJECT-REF.supabase.co',
+    defaultValue: 'https://izadximfujvephtwlsfk.supabase.co',
   );
 
   static const String publishableKey = String.fromEnvironment(
     'SUPABASE_KEY',
-    defaultValue: 'ISI-PUBLISHABLE-KEY',
+    defaultValue: 'sb_publishable_XeLaIJNa6M_5U67FYLbQyA_WVjE03wO',
   );
 
   /// False selama URL/key masih placeholder.
