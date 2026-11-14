@@ -6,6 +6,9 @@ import '../../../core/utils/formatters.dart';
 import '../../../model/stock_item.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/primary_button.dart';
+import '../../rescue/promotion_controller.dart';
+import '../../rescue/rescue_advisor.dart';
+import '../../rescue/widgets/rescue_card.dart';
 import '../stock_controller.dart';
 import '../widgets/stock_status_badge.dart';
 
@@ -56,7 +59,9 @@ class StockDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stock = StockScope.of(context);
+    final promotions = PromotionScope.of(context);
     final item = stock.byId(stockId);
+    final rec = item == null ? null : promotions.recommend(item);
 
     return Scaffold(
       appBar: AppBar(
@@ -79,6 +84,18 @@ class StockDetailPage extends StatelessWidget {
                 arguments: item,
               ),
               onDelete: () => _confirmDelete(context, item),
+              rescue: rec == null || rec.action == RescueAction.monitor
+                  ? null
+                  : RescueCard(
+                      recommendation: rec,
+                      now: stock.now,
+                      showStockName: false,
+                      activePromotion: promotions.activeForStock(stockId),
+                      onCreatePromo: () => Navigator.of(context).pushNamed(
+                        AppRoutes.promotionForm,
+                        arguments: stockId,
+                      ),
+                    ),
             ),
     );
   }
@@ -91,6 +108,7 @@ class _DetailBody extends StatelessWidget {
     required this.now,
     required this.onEdit,
     required this.onDelete,
+    this.rescue,
   });
 
   final StockItem item;
@@ -98,6 +116,9 @@ class _DetailBody extends StatelessWidget {
   final DateTime now;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  /// Kartu rekomendasi penyelamatan (null jika stok masih aman).
+  final Widget? rescue;
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +177,7 @@ class _DetailBody extends StatelessWidget {
                 ],
               ),
             ),
+            if (rescue != null) ...[const SizedBox(height: 16), rescue!],
             const SizedBox(height: 16),
             AppCard(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

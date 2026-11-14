@@ -14,12 +14,16 @@ class StockListTile extends StatelessWidget {
     required this.status,
     required this.now,
     this.onTap,
+    this.promoLabel,
   });
 
   final StockItem item;
   final StockStatus status;
   final DateTime now;
   final VoidCallback? onTap;
+
+  /// Contoh "Promo -30%" jika stok sedang dipromosikan.
+  final String? promoLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +64,25 @@ class StockListTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
+                if (promoLabel != null) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.blueSoft,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      promoLabel!,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.blueText,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

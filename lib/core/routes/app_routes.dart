@@ -6,6 +6,8 @@ import '../../features/auth/pages/signup_page.dart';
 import '../../features/auth/pages/splash_page.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
 import '../../features/onboarding/pages/business_profile_page.dart';
+import '../../features/rescue/pages/promotion_form_page.dart';
+import '../../features/rescue/pages/rescue_page.dart';
 import '../../features/stock/pages/stock_detail_page.dart';
 import '../../features/stock/pages/stock_form_page.dart';
 import '../../features/survey/models/user_role.dart';
@@ -33,6 +35,11 @@ class AppRoutes {
   /// Argumen wajib: id stok (int).
   static const String stockDetail = '/stock/detail';
 
+  static const String rescue = '/rescue';
+
+  /// Argumen wajib: id stok (int) yang akan dipromosikan.
+  static const String promotionForm = '/rescue/promotion';
+
   static Map<String, WidgetBuilder> routes({
     AuthRepository authRepository = const SqliteAuthRepository(),
   }) => {
@@ -48,6 +55,10 @@ class AppRoutes {
       return StockFormPage(initial: args is StockItem ? args : null);
     },
     stockDetail: (context) => StockDetailPage(
+      stockId: ModalRoute.of(context)!.settings.arguments! as int,
+    ),
+    rescue: (_) => const RescuePage(),
+    promotionForm: (context) => PromotionFormPage(
       stockId: ModalRoute.of(context)!.settings.arguments! as int,
     ),
     dashboard: (context) {

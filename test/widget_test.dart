@@ -9,6 +9,8 @@ import 'package:operin/model/business_profile.dart';
 import 'package:operin/model/food_category.dart';
 import 'package:operin/model/stock_item.dart';
 import 'package:operin/data/stock_repository.dart';
+import 'package:operin/data/promotion_repository.dart';
+import 'package:operin/model/promotion.dart';
 
 const _welcomeText = 'Welcome back please login to your account';
 
@@ -17,6 +19,7 @@ Future<void> _pumpApp(
   required _FakeAuthRepository auth,
   required _FakeProfileRepository profiles,
   _FakeStockRepository? stock,
+  _FakePromotionRepository? promotions,
 }) async {
   // Lebar ponsel, tapi cukup tinggi agar seluruh form onboarding muat
   // tanpa scroll.
@@ -29,6 +32,7 @@ Future<void> _pumpApp(
       authRepository: auth,
       profileRepository: profiles,
       stockRepository: stock ?? _FakeStockRepository(),
+      promotionRepository: promotions ?? _FakePromotionRepository(),
       clock: () => _today,
     ),
   );
@@ -316,12 +320,162 @@ void main() {
       expect(find.text('Beras'), findsNothing);
     });
   });
+
+  group('Smart Stock Rescue', () {
+    Future<(_FakeStockRepository, _FakePromotionRepository)> pumpRescue(
+      WidgetTester tester, {
+      List<StockItem> extra = const [],
+    }) async {
+      final stock = _FakeStockRepository()
+        ..seed([
+          _stock('Susu Basi', DateTime(2026, 11, 12)), // kedaluwarsa
+          _stock('Roti Tawar', DateTime(2026, 11, 15), // H-1
+              category: FoodCategory.roti),
+          _stock('Beras', DateTime(2026, 12, 30)), // aman
+          ...extra,
+        ]);
+      final promotions = _FakePromotionRepository();
+      await _pumpApp(
+        tester,
+        auth: _FakeAuthRepository()
+          ..user = _FakeAuthRepository.defaultUser.copyWith(role: 'seller')
+          ..sessionUserId = 1,
+        profiles: _FakeProfileRepository()..saved = _sampleProfile,
+        stock: stock,
+        promotions: promotions,
+      );
+      return (stock, promotions);
+    }
+
+    testWidgets('rekomendasi → terbitkan promo → batalkan', (tester) async {
+      final (_, promotions) = await pumpRescue(tester);
+
+      // Tile layanan menampilkan jumlah stok yang perlu diselamatkan
+      expect(
+        find.text('2 stok perlu diselamatkan. Lihat rekomendasi.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Penyelamatan Lapis 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Penyelamatan Stok'), findsOneWidget);
+      expect(find.text('2 stok perlu diselamatkan'), findsOneWidget);
+      expect(find.text('TINDAKAN HARI INI'), findsOneWidget);
+      expect(find.text('KEDALUWARSA MINGGU INI'), findsOneWidget);
+      expect(find.text('Salurkan ke Daur Ulang'), findsNothing); // tak ada tombol
+      expect(find.text('Beras'), findsNothing);
+
+      // Roti H-1 (mudah rusak, kritis) → diskon 50%
+      await tester.tap(find.text('Buat Diskon 50%'));
+      await tester.pumpAndSettle();
+      expect(find.text('Buat Promo'), findsOneWidget);
+      expect(find.text('Diskon: 50%'), findsOneWidget);
+      expect(find.text('Rp 5.000 /pcs'), findsOneWidget); // harga promo
+      expect(find.text('Rp 25.000'), findsOneWidget); // pemasukan 5 pcs
+
+      // Jumlah melebihi stok ditolak
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Jumlah dipromosikan (pcs)'),
+        '9',
+      );
+      await _tapButton(tester, 'Terbitkan Promo');
+      expect(find.text('Jumlah promo melebihi stok (5 pcs).'), findsOneWidget);
+      expect(promotions.items, isEmpty);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Jumlah dipromosikan (pcs)'),
+        '4',
+      );
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await _tapButton(tester, 'Terbitkan Promo');
+
+      final promo = promotions.items.single;
+      expect(promo.discountPercent, 50);
+      expect(promo.quantity, 4);
+      expect(promo.type, PromotionType.discount);
+      expect(promo.endsAt, DateTime(2026, 11, 16)); // akhir hari kedaluwarsa
+
+      // Kembali ke halaman penyelamatan dengan promo aktif
+      expect(find.text('PROMO AKTIF (1)'), findsOneWidget);
+      expect(find.text('Buat Diskon 50%'), findsNothing);
+
+      await tester.tap(find.text('Batalkan'));
+      await tester.pumpAndSettle();
+      expect(promotions.items.single.status, PromotionStatus.cancelled);
+      expect(find.text('PROMO AKTIF (1)'), findsNothing);
+      expect(find.text('Buat Diskon 50%'), findsOneWidget);
+    });
+
+    testWidgets('"Aksi" di dasbor membuka form promo untuk stok kritis',
+        (tester) async {
+      await pumpRescue(tester);
+
+      // Urutan peringatan: Susu Basi (kedaluwarsa), lalu Roti Tawar
+      await tester.tap(find.text('Aksi').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Buat Promo'), findsOneWidget);
+      expect(find.text('Roti Tawar'), findsOneWidget);
+    });
+
+    testWidgets('flash sale berakhir sesuai durasi yang dipilih',
+        (tester) async {
+      final (_, promotions) = await pumpRescue(
+        tester,
+        extra: [
+          // Kedaluwarsa hari ini → rekomendasi flash sale
+          _stock('Nasi Kotak', DateTime(2026, 11, 14),
+              category: FoodCategory.makananJadi),
+        ],
+      );
+
+      await tester.tap(find.text('Penyelamatan Lapis 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Buat Flash Sale 60%'));
+      await tester.pumpAndSettle();
+      expect(find.text('Diskon: 60%'), findsOneWidget);
+
+      await tester.tap(find.text('6 jam'));
+      await tester.pumpAndSettle();
+      await _tapButton(tester, 'Terbitkan Promo');
+
+      final promo = promotions.items.single;
+      expect(promo.type, PromotionType.flashSale);
+      expect(promo.endsAt, _today.add(const Duration(hours: 6)));
+    });
+  });
 }
 
-StockItem _stock(String name, DateTime expiry) => StockItem(
+class _FakePromotionRepository implements PromotionRepository {
+  final List<Promotion> items = [];
+  int _nextId = 1;
+
+  @override
+  Future<List<Promotion>> listByUser(int userId) async =>
+      items.where((p) => p.userId == userId).toList().reversed.toList();
+
+  @override
+  Future<Promotion> insert(Promotion promotion) async {
+    final saved = promotion.copyWith(id: _nextId++);
+    items.add(saved);
+    return saved;
+  }
+
+  @override
+  Future<void> updateStatus(int id, PromotionStatus status) async {
+    final index = items.indexWhere((p) => p.id == id);
+    items[index] = items[index].copyWith(status: status);
+  }
+}
+
+StockItem _stock(
+  String name,
+  DateTime expiry, {
+  FoodCategory category = FoodCategory.bahanKering,
+}) => StockItem(
   userId: 1,
   name: name,
-  category: FoodCategory.bahanKering,
+  category: category,
   quantity: 5,
   unit: StockUnit.pcs,
   pricePerUnit: 10000,

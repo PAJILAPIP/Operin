@@ -33,7 +33,7 @@ class LocalDatabase {
         : path.join(await getDatabasesPath(), 'operin.db');
     _database = await openDatabase(
       databasePath,
-      version: 4,
+      version: 5,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -56,6 +56,7 @@ class LocalDatabase {
         await _createSessionTable(database);
         await _createBusinessProfileTable(database);
         await _createStockTable(database);
+        await _createPromotionTable(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -86,9 +87,33 @@ class LocalDatabase {
         if (oldVersion < 4) {
           await _createStockTable(database);
         }
+        if (oldVersion < 5) {
+          await _createPromotionTable(database);
+        }
       },
     );
     return _database!;
+  }
+
+  /// Promo penyelamatan stok (diskon / flash sale).
+  static Future<void> _createPromotionTable(DatabaseExecutor database) async {
+    await database.execute('''
+      CREATE TABLE promotions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        stock_id INTEGER NOT NULL REFERENCES stock_items(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        discount_percent INTEGER NOT NULL,
+        original_price INTEGER NOT NULL,
+        quantity REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        ends_at TEXT NOT NULL,
+        status TEXT NOT NULL
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX idx_promotion_user ON promotions(user_id, status)',
+    );
   }
 
   /// Stok bahan milik tiap user.

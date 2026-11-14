@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../model/stock_item.dart';
+import '../../rescue/promotion_controller.dart';
 import '../../stock/stock_controller.dart';
 import '../../../widgets/section_title.dart';
 import '../widgets/dashboard_bottom_nav.dart';
@@ -18,6 +20,19 @@ class HomeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stock = StockScope.of(context);
+    final promotions = PromotionScope.of(context);
+    final rescueCount = promotions.recommendations.length;
+
+    // "Aksi": stok yang masih bisa dijual & belum dipromosikan → buat promo;
+    // selain itu (kedaluwarsa / promo sudah jalan) → buka detail stok.
+    void handleAction(StockItem item) {
+      final canPromote = promotions.recommend(item).action.canPromote &&
+          promotions.activeForStock(item.id!) == null;
+      Navigator.of(context).pushNamed(
+        canPromote ? AppRoutes.promotionForm : AppRoutes.stockDetail,
+        arguments: item.id,
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -28,10 +43,7 @@ class HomeTab extends StatelessWidget {
           items: stock.urgentItems,
           statusOf: stock.statusOf,
           now: stock.now,
-          onAction: (item) => Navigator.of(context).pushNamed(
-            AppRoutes.stockDetail,
-            arguments: item.id,
-          ),
+          onAction: handleAction,
           onSeeAll: () => onNavigate(DashboardTab.stok),
         ),
         const SizedBox(height: 24),
@@ -48,8 +60,10 @@ class HomeTab extends StatelessWidget {
           icon: Icons.sell_outlined,
           iconBackground: AppColors.blue,
           title: 'Penyelamatan Lapis 1',
-          subtitle: 'Auto-promo cerdas sebelum masa kadaluwarsa.',
-          onTap: () {},
+          subtitle: rescueCount == 0
+              ? 'Auto-promo cerdas sebelum masa kadaluwarsa.'
+              : '$rescueCount stok perlu diselamatkan. Lihat rekomendasi.',
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.rescue),
         ),
         const SizedBox(height: 12),
         ServiceTile(

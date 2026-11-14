@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../model/stock_item.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/app_text_field.dart';
+import '../../rescue/promotion_controller.dart';
 import '../../stock/stock_controller.dart';
 import '../../stock/widgets/stock_list_tile.dart';
 import '../../stock/widgets/stock_status_badge.dart';
@@ -26,6 +27,7 @@ class _StockTabState extends State<StockTab> {
   @override
   Widget build(BuildContext context) {
     final stock = StockScope.of(context);
+    final promotions = PromotionScope.of(context);
     final now = stock.now;
 
     final counts = {for (final status in StockStatus.values) status: 0};
@@ -126,6 +128,11 @@ class _StockTabState extends State<StockTab> {
                 item: item,
                 status: stock.statusOf(item),
                 now: now,
+                promoLabel: switch (promotions.activeForStock(item.id!)) {
+                  final promo? =>
+                    '${promo.type.label} -${promo.discountPercent}%',
+                  null => null,
+                },
                 onTap: () => Navigator.of(context).pushNamed(
                   AppRoutes.stockDetail,
                   arguments: item.id,
