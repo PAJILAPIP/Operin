@@ -1,3 +1,4 @@
+import '../core/utils/db_codec.dart';
 import 'food_category.dart';
 import 'stock_item.dart';
 
@@ -91,7 +92,7 @@ class ActivityEntry {
     weightKg: (map['weight_kg']! as num).toDouble(),
     referenceType: map['reference_type']! as String,
     referenceId: map['reference_id']! as int,
-    createdAt: DateTime.parse(map['created_at']! as String),
+    createdAt: decodeTime(map['created_at']),
   );
 
   Map<String, Object?> toMap() => {
@@ -109,6 +110,6 @@ class ActivityEntry {
     'weight_kg': weightKg,
     'reference_type': referenceType,
     'reference_id': referenceId,
-    'created_at': createdAt.toIso8601String(),
+    'created_at': encodeTime(createdAt),
   };
 }

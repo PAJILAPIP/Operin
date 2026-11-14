@@ -1,3 +1,4 @@
+import '../core/utils/db_codec.dart';
 /// Jenis promo penyelamatan stok.
 enum PromotionType {
   /// Diskon berlaku sampai akhir hari kedaluwarsa.
@@ -75,8 +76,8 @@ class Promotion {
     discountPercent: map['discount_percent']! as int,
     originalPrice: map['original_price']! as int,
     quantity: (map['quantity']! as num).toDouble(),
-    createdAt: DateTime.parse(map['created_at']! as String),
-    endsAt: DateTime.parse(map['ends_at']! as String),
+    createdAt: decodeTime(map['created_at']),
+    endsAt: decodeTime(map['ends_at']),
     status: PromotionStatus.fromName(map['status'] as String?),
   );
 
@@ -88,8 +89,8 @@ class Promotion {
     'discount_percent': discountPercent,
     'original_price': originalPrice,
     'quantity': quantity,
-    'created_at': createdAt.toIso8601String(),
-    'ends_at': endsAt.toIso8601String(),
+    'created_at': encodeTime(createdAt),
+    'ends_at': encodeTime(endsAt),
     'status': status.name,
   };
 

@@ -1,3 +1,4 @@
+import '../core/utils/db_codec.dart';
 class AuthUser {
   const AuthUser({
     this.id,
@@ -35,7 +36,7 @@ class AuthUser {
     email: map['email']! as String,
     businessType: map['business_type']! as String,
     address: map['address']! as String,
-    createdAt: DateTime.parse(map['created_at']! as String),
+    createdAt: decodeTime(map['created_at']),
     role: map['role'] as String?,
     latitude: (map['latitude'] as num?)?.toDouble(),
     longitude: (map['longitude'] as num?)?.toDouble(),
@@ -47,7 +48,7 @@ class AuthUser {
     'email': email,
     'business_type': businessType,
     'address': address,
-    'created_at': createdAt.toIso8601String(),
+    'created_at': encodeTime(createdAt),
     'role': role,
     'latitude': latitude,
     'longitude': longitude,

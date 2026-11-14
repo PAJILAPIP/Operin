@@ -72,17 +72,14 @@ enum AiProvider {
   }
 }
 
-/// Konfigurasi AI scanner dari `--dart-define` / `--dart-define-from-file`:
+/// Konfigurasi pemanggilan AI LANGSUNG dari app (hanya untuk pengembangan;
+/// default app memakai [SupabaseScanService] agar key tetap di server):
 ///
 /// ```
-/// flutter run --dart-define-from-file=env.json
-/// // env.json: {"GROQ_API_KEY": "gsk_..."}  atau  {"GROK_API_KEY": "xai-..."}
+/// flutter run --dart-define=GROQ_API_KEY=gsk_...   (atau GROK_API_KEY=xai-...)
 /// ```
 ///
 /// Opsional: `AI_MODEL` untuk mengganti model default penyedia.
-///
-/// Catatan keamanan: key yang ditanam di aplikasi bisa diekstrak dari APK.
-/// Untuk rilis produksi, panggilan ini dipindah ke backend (Tahap 12).
 class AiScanConfig {
   const AiScanConfig({
     required this.provider,
@@ -97,12 +94,7 @@ class AiScanConfig {
     const groqKey = String.fromEnvironment('GROQ_API_KEY');
     const grokKey = String.fromEnvironment('GROK_API_KEY');
     const model = String.fromEnvironment('AI_MODEL');
-    // Urutan: GROQ_API_KEY → GROK_API_KEY → key bawaan prototype.
-    final key = cleanKey(groqKey).isNotEmpty
-        ? groqKey
-        : cleanKey(grokKey).isNotEmpty
-        ? grokKey
-        : prototypeApiKey;
+    final key = cleanKey(groqKey).isNotEmpty ? groqKey : grokKey;
     final provider = cleanKey(groqKey).isNotEmpty
         ? AiProvider.groq
         : AiProvider.fromKey(cleanKey(key)) ?? AiProvider.xai;
@@ -112,13 +104,6 @@ class AiScanConfig {
       modelOverride: model.isEmpty ? null : model,
     );
   }
-
-  /// Key Groq bawaan PROTOTYPE agar APK langsung bisa scan tanpa
-  /// `--dart-define`. Key ini ikut terbaca siapa pun yang punya kode/APK:
-  /// ganti (regenerate) di console.groq.com dan pindahkan ke backend sebelum
-  /// rilis (Tahap 12).
-  static const String prototypeApiKey =
-      'GROQ_KEY_DIHAPUS';
 
   final AiProvider provider;
   final String apiKey;
@@ -331,7 +316,6 @@ Jika foto bukan bahan makanan: {"is_food": false, "summary": "...", "items": []}
 
   /// Mengambil teks jawaban dari respons Responses API (xAI) atau chat
   /// completions (Groq).
-  @visibleForTesting
   static String extractOutputText(String responseBody) {
     final Object? decoded;
     try {
@@ -370,7 +354,6 @@ Jika foto bukan bahan makanan: {"is_food": false, "summary": "...", "items": []}
 
   /// Mengurai objek JSON dari teks, toleran terhadap pagar ```json dan blok
   /// penalaran `<think>...</think>` (model Qwen).
-  @visibleForTesting
   static Map<String, dynamic>? parseJsonObject(String text) {
     final cleaned = text.replaceAll(
       RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),

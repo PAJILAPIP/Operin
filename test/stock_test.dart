@@ -1,9 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:operin/core/utils/formatters.dart';
-import 'package:operin/data/auth_repository.dart';
-import 'package:operin/data/local_database.dart';
-import 'package:operin/data/stock_repository.dart';
 import 'package:operin/model/food_category.dart';
 import 'package:operin/model/stock_item.dart';
 
@@ -27,7 +23,6 @@ StockItem _item({
 
 void main() {
   // Database terpisah per file test agar aman dijalankan paralel.
-  LocalDatabase.fileName = 'test_stock.db';
 
   // Jam 23:30 untuk memastikan perhitungan hari hanya memakai tanggal.
   final now = DateTime(2026, 11, 14, 23, 30);
@@ -106,67 +101,5 @@ void main() {
     test('tanggal', () {
       expect(formatDate(DateTime(2026, 11, 14)), '14 Nov 2026');
     });
-  });
-
-  test('SqliteStockRepository CRUD per user', () async {
-    final previousPlatform = debugDefaultTargetPlatformOverride;
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    const auth = SqliteAuthRepository();
-    const repository = SqliteStockRepository();
-    final stamp = DateTime.now().microsecondsSinceEpoch;
-    final emails = ['stock-a-$stamp@operin.test', 'stock-b-$stamp@operin.test'];
-
-    try {
-      final userA = await auth.register(
-        fullName: 'A',
-        email: emails[0],
-        password: 'password123',
-        businessType: 'warungMakan',
-        address: 'Padang',
-      );
-      final userB = await auth.register(
-        fullName: 'B',
-        email: emails[1],
-        password: 'password123',
-        businessType: 'warungMakan',
-        address: 'Padang',
-      );
-
-      final later = await repository.insert(_item(
-        userId: userA.id!,
-        name: 'Roti',
-        expiry: DateTime(2026, 12, 5),
-      ));
-      final sooner = await repository.insert(_item(
-        userId: userA.id!,
-        name: 'Tomat',
-        expiry: DateTime(2026, 11, 20),
-      ));
-      await repository.insert(_item(
-        userId: userB.id!,
-        name: 'Milik B',
-        expiry: DateTime(2026, 11, 1),
-      ));
-      expect(later.id, isNotNull);
-
-      // Hanya stok milik A, urut kedaluwarsa terdekat
-      var list = await repository.listByUser(userA.id!);
-      expect(list.map((e) => e.name), ['Tomat', 'Roti']);
-
-      await repository.update(sooner.copyWith(quantity: 10));
-      list = await repository.listByUser(userA.id!);
-      expect(list.first.quantity, 10);
-
-      await repository.delete(sooner.id!);
-      list = await repository.listByUser(userA.id!);
-      expect(list.map((e) => e.name), ['Roti']);
-    } finally {
-      // Stok ikut terhapus lewat ON DELETE CASCADE
-      final database = await LocalDatabase.instance.database;
-      for (final email in emails) {
-        await database.delete('users', where: 'email = ?', whereArgs: [email]);
-      }
-      debugDefaultTargetPlatformOverride = previousPlatform;
-    }
   });
 }

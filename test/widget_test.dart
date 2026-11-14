@@ -23,6 +23,7 @@ import 'package:operin/model/business_category.dart';
 import 'package:operin/model/partner_profile.dart';
 import 'package:operin/model/market_listing.dart';
 import 'package:operin/model/market_order.dart';
+import 'package:operin/data/realtime_service.dart';
 import 'package:operin/data/scan_service.dart';
 import 'package:operin/features/scanner/scan_image_service.dart';
 import 'package:operin/model/scan_result.dart';
@@ -58,6 +59,7 @@ Future<void> _pumpApp(
       transactionRepository: transactions ?? _FakeTransactionRepository(),
       scanService: scan ?? _FakeScanService(),
       scanImageService: images ?? _FakeScanImageService(),
+      realtimeService: const NoopRealtimeService(),
       clock: () => _today,
     ),
   );
@@ -962,7 +964,7 @@ void main() {
       await openScanTab(tester, scan: scan, images: images, stock: stock);
 
       expect(find.text('Belum ada foto'), findsOneWidget);
-      expect(find.textContaining('API key belum diatur'), findsNothing);
+      expect(find.textContaining('AI belum aktif'), findsNothing);
 
       await tester.tap(find.text('Galeri'));
       await tester.pumpAndSettle();
@@ -1062,7 +1064,7 @@ void main() {
         images: _FakeScanImageService(),
       );
 
-      expect(find.textContaining('API key belum diatur'), findsOneWidget);
+      expect(find.textContaining('AI belum aktif'), findsOneWidget);
       await tester.tap(find.text('Galeri'));
       await tester.pumpAndSettle();
       expect(find.text('API key AI belum diatur.'), findsOneWidget);
@@ -1544,6 +1546,9 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> clearSession() async => sessionUserId = null;
+
+  @override
+  Future<void> signOut() async => sessionUserId = null;
 
   @override
   Future<AuthUser> updateRole(int userId, String role) async {

@@ -14,7 +14,7 @@ import '../widgets/remember_me_checkbox.dart';
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
-    this.authRepository = const SqliteAuthRepository(),
+    this.authRepository = const SupabaseAuthRepository(),
   });
 
   final AuthRepository authRepository;

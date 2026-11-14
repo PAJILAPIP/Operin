@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/routes/app_routes.dart';
+import 'core/session/realtime_sync.dart';
 import 'core/session/session_controller.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
@@ -10,7 +11,9 @@ import 'data/match_repository.dart';
 import 'data/profile_repository.dart';
 import 'data/promotion_repository.dart';
 import 'data/stock_repository.dart';
+import 'data/realtime_service.dart';
 import 'data/scan_service.dart';
+import 'data/supabase_scan_service.dart';
 import 'data/transaction_repository.dart';
 import 'features/impact/transaction_controller.dart';
 import 'features/market/market_controller.dart';
@@ -23,15 +26,16 @@ import 'features/stock/stock_controller.dart';
 class OperinApp extends StatefulWidget {
   const OperinApp({
     super.key,
-    this.authRepository = const SqliteAuthRepository(),
-    this.profileRepository = const SqliteProfileRepository(),
-    this.stockRepository = const SqliteStockRepository(),
-    this.promotionRepository = const SqlitePromotionRepository(),
-    this.marketRepository = const SqliteMarketRepository(),
-    this.matchRepository = const SqliteMatchRepository(),
-    this.transactionRepository = const SqliteTransactionRepository(),
+    this.authRepository = const SupabaseAuthRepository(),
+    this.profileRepository = const SupabaseProfileRepository(),
+    this.stockRepository = const SupabaseStockRepository(),
+    this.promotionRepository = const SupabasePromotionRepository(),
+    this.marketRepository = const SupabaseMarketRepository(),
+    this.matchRepository = const SupabaseMatchRepository(),
+    this.transactionRepository = const SupabaseTransactionRepository(),
     this.scanService,
     this.scanImageService,
+    this.realtimeService,
     this.clock,
   });
 
@@ -43,11 +47,14 @@ class OperinApp extends StatefulWidget {
   final MatchRepository matchRepository;
   final TransactionRepository transactionRepository;
 
-  /// Analisis foto AI. Default: Groq/Grok (API key dari --dart-define).
+  /// Analisis foto AI. Default: Edge Function Supabase scan-food.
   final StockScanService? scanService;
 
   /// Izin kamera + pemilih foto. Default: kamera/galeri perangkat.
   final ScanImageService? scanImageService;
+
+  /// Pemberitahuan perubahan data dari server. Default: Supabase Realtime.
+  final RealtimeService? realtimeService;
 
   /// Sumber waktu "sekarang" (bisa diganti di test). Default: DateTime.now.
   final DateTime Function()? clock;
@@ -93,12 +100,31 @@ class _OperinAppState extends State<OperinApp> {
   );
 
   late final StockScanService _scanService =
-      widget.scanService ?? AiScanService();
+      widget.scanService ?? const SupabaseScanService();
   late final ScanImageService _scanImageService =
       widget.scanImageService ?? DeviceScanImageService();
 
+  late final RealtimeSync _realtime;
+
+  RealtimeSync _createRealtime() => RealtimeSync(
+    service: widget.realtimeService ?? SupabaseRealtimeService(),
+    session: _session,
+    stock: _stock,
+    market: _market,
+    match: _match,
+    transactions: _transactions,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // Berlangganan perubahan data server selama user login.
+    _realtime = _createRealtime();
+  }
+
   @override
   void dispose() {
+    _realtime.dispose();
     _transactions.dispose();
     _match.dispose();
     _market.dispose();

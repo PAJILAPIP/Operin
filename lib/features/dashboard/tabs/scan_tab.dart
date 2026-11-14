@@ -424,8 +424,8 @@ class _NotConfiguredBanner extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'AI belum aktif: API key belum diatur. Isi GROQ_API_KEY di '
-              'env.json lalu jalankan dengan --dart-define-from-file=env.json',
+              'AI belum aktif: koneksi server belum diatur. Isi URL & key '
+              'Supabase di lib/core/config/supabase_config.dart.',
               style: TextStyle(fontSize: 12, color: AppColors.amberText),
             ),
           ),

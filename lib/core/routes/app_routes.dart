@@ -63,7 +63,7 @@ class AppRoutes {
   static const String impact = '/impact';
 
   static Map<String, WidgetBuilder> routes({
-    AuthRepository authRepository = const SqliteAuthRepository(),
+    AuthRepository authRepository = const SupabaseAuthRepository(),
   }) => {
     splash: (_) => const SplashPage(),
     login: (_) => LoginPage(authRepository: authRepository),

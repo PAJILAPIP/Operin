@@ -1,3 +1,4 @@
+import '../core/utils/db_codec.dart';
 import 'stock_item.dart';
 
 /// Status pengajuan pembelian di Pasar B2B.
@@ -74,8 +75,8 @@ class MarketOrder {
     unitPrice: map['unit_price']! as int,
     status: OrderStatus.fromName(map['status'] as String?),
     note: map['note'] as String?,
-    createdAt: DateTime.parse(map['created_at']! as String),
-    updatedAt: DateTime.parse(map['updated_at']! as String),
+    createdAt: decodeTime(map['created_at']),
+    updatedAt: decodeTime(map['updated_at']),
     stockName: map['stock_name'] as String?,
     unit: map['stock_unit'] == null
         ? null
@@ -93,8 +94,8 @@ class MarketOrder {
     'unit_price': unitPrice,
     'status': status.name,
     'note': note,
-    'created_at': createdAt.toIso8601String(),
-    'updated_at': updatedAt.toIso8601String(),
+    'created_at': encodeTime(createdAt),
+    'updated_at': encodeTime(updatedAt),
   };
 
   MarketOrder copyWith({int? id, OrderStatus? status, DateTime? updatedAt}) =>

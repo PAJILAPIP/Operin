@@ -34,8 +34,7 @@ class SessionController extends ChangeNotifier {
     return user;
   }
 
-  /// [remember] true → sesi disimpan ke database sehingga user tetap login
-  /// setelah app ditutup. false → sesi hanya ada di memori.
+  /// [remember] true → user tetap login setelah app ditutup. false → sesi hanya ada di memori.
   Future<void> signIn(AuthUser user, {required bool remember}) async {
     if (remember) {
       await repository.saveSession(user.id!);
@@ -60,7 +59,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    await repository.clearSession();
+    await repository.signOut();
     _currentUser = null;
     _profile = null;
     notifyListeners();

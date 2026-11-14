@@ -17,7 +17,7 @@ import '../widgets/auth_switch_text.dart';
 class SignupPage extends StatefulWidget {
   const SignupPage({
     super.key,
-    this.authRepository = const SqliteAuthRepository(),
+    this.authRepository = const SupabaseAuthRepository(),
   });
 
   final AuthRepository authRepository;

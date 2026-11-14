@@ -1,5 +1,5 @@
 import '../model/stock_item.dart';
-import 'local_database.dart';
+import 'supabase_support.dart';
 
 abstract interface class StockRepository {
   /// Semua stok milik [userId], urut dari yang paling cepat kedaluwarsa.
@@ -13,47 +13,51 @@ abstract interface class StockRepository {
   Future<void> delete(int id);
 }
 
-class SqliteStockRepository implements StockRepository {
-  const SqliteStockRepository();
+class SupabaseStockRepository implements StockRepository {
+  const SupabaseStockRepository();
+
+  static const _table = 'stock_items';
 
   @override
-  Future<List<StockItem>> listByUser(int userId) async {
-    final database = await LocalDatabase.instance.database;
-    final rows = await database.query(
-      'stock_items',
-      where: 'user_id = ?',
-      whereArgs: [userId],
-      orderBy: 'expiry_date ASC, name COLLATE NOCASE ASC',
-    );
+  Future<List<StockItem>> listByUser(int userId) => guardDb(() async {
+    final rows = await supabase
+        .from(_table)
+        .select()
+        .eq('user_id', userId)
+        .order('expiry_date')
+        .order('name');
     return rows.map(StockItem.fromMap).toList();
-  }
+  }, DataException.new);
 
   @override
-  Future<StockItem> insert(StockItem item) async {
-    final database = await LocalDatabase.instance.database;
-    final map = item.toMap()..remove('id');
-    final id = await database.insert('stock_items', map);
-    return item.copyWith(id: id);
-  }
+  Future<StockItem> insert(StockItem item) => guardDb(() async {
+    final row = await supabase
+        .from(_table)
+        .insert(item.toMap()..remove('id'))
+        .select()
+        .single();
+    return StockItem.fromMap(row);
+  }, DataException.new);
 
   @override
-  Future<StockItem> update(StockItem item) async {
+  Future<StockItem> update(StockItem item) {
     final id = item.id;
     if (id == null) throw ArgumentError('Stok belum memiliki id.');
-    final database = await LocalDatabase.instance.database;
-    final count = await database.update(
-      'stock_items',
-      item.toMap()..remove('id'),
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (count == 0) throw StateError('Stok #$id tidak ditemukan.');
-    return item;
+    return guardDb(() async {
+      final row = await supabase
+          .from(_table)
+          .update(item.toMap()..remove('id'))
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+      if (row == null) throw StateError('Stok #$id tidak ditemukan.');
+      return StockItem.fromMap(row);
+    }, DataException.new);
   }
 
   @override
-  Future<void> delete(int id) async {
-    final database = await LocalDatabase.instance.database;
-    await database.delete('stock_items', where: 'id = ?', whereArgs: [id]);
-  }
+  Future<void> delete(int id) => guardDb(
+    () => supabase.from(_table).delete().eq('id', id),
+    DataException.new,
+  );
 }

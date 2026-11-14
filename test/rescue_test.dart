@@ -1,9 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:operin/data/auth_repository.dart';
-import 'package:operin/data/local_database.dart';
-import 'package:operin/data/promotion_repository.dart';
-import 'package:operin/data/stock_repository.dart';
 import 'package:operin/features/rescue/rescue_advisor.dart';
 import 'package:operin/model/food_category.dart';
 import 'package:operin/model/promotion.dart';
@@ -32,7 +27,6 @@ StockItem _item(
 
 void main() {
   // Database terpisah per file test agar aman dijalankan paralel.
-  LocalDatabase.fileName = 'test_rescue.db';
 
   const advisor = RescueAdvisor();
 
@@ -116,54 +110,5 @@ void main() {
       expect(restored.promoPrice, 4000);
       expect(restored.endsAt, promo.endsAt);
     });
-  });
-
-  test('SqlitePromotionRepository simpan, batalkan, ikut terhapus bersama stok',
-      () async {
-    final previousPlatform = debugDefaultTargetPlatformOverride;
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    const auth = SqliteAuthRepository();
-    const stocks = SqliteStockRepository();
-    const promotions = SqlitePromotionRepository();
-    final email = 'promo-${DateTime.now().microsecondsSinceEpoch}@operin.test';
-
-    try {
-      final user = await auth.register(
-        fullName: 'Promo',
-        email: email,
-        password: 'password123',
-        businessType: 'bakery',
-        address: 'Padang',
-      );
-      // insert() mengabaikan id bawaan dan memakai id dari database.
-      final stock = await stocks.insert(_item(1, userId: user.id!));
-
-      final saved = await promotions.insert(Promotion(
-        userId: user.id!,
-        stockId: stock.id!,
-        type: PromotionType.discount,
-        discountPercent: 50,
-        originalPrice: 10000,
-        quantity: 10,
-        createdAt: _now,
-        endsAt: DateTime(2026, 11, 16),
-      ));
-      expect(saved.id, isNotNull);
-
-      var list = await promotions.listByUser(user.id!);
-      expect(list.single.discountPercent, 50);
-      expect(list.single.status, PromotionStatus.active);
-
-      await promotions.updateStatus(saved.id!, PromotionStatus.cancelled);
-      list = await promotions.listByUser(user.id!);
-      expect(list.single.status, PromotionStatus.cancelled);
-
-      await stocks.delete(stock.id!);
-      expect(await promotions.listByUser(user.id!), isEmpty);
-    } finally {
-      final database = await LocalDatabase.instance.database;
-      await database.delete('users', where: 'email = ?', whereArgs: [email]);
-      debugDefaultTargetPlatformOverride = previousPlatform;
-    }
   });
 }

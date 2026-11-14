@@ -1,3 +1,4 @@
+import '../core/utils/db_codec.dart';
 import 'food_category.dart';
 
 /// Profil & preferensi usaha, diisi saat onboarding setelah pilih peran.
@@ -37,9 +38,9 @@ class BusinessProfile {
     preferredCategories:
         FoodCategory.parseList(map['preferred_categories'] as String?),
     radiusKm: map['radius_km']! as int,
-    notifyExpiry: (map['notify_expiry']! as int) == 1,
+    notifyExpiry: decodeBool(map['notify_expiry']),
     notifyDaysBefore: map['notify_days_before']! as int,
-    updatedAt: DateTime.parse(map['updated_at']! as String),
+    updatedAt: decodeTime(map['updated_at']),
   );
 
   Map<String, Object?> toMap() => {
@@ -48,9 +49,9 @@ class BusinessProfile {
     'whatsapp': whatsapp,
     'preferred_categories': FoodCategory.encodeList(preferredCategories),
     'radius_km': radiusKm,
-    'notify_expiry': notifyExpiry ? 1 : 0,
+    'notify_expiry': notifyExpiry,
     'notify_days_before': notifyDaysBefore,
-    'updated_at': updatedAt.toIso8601String(),
+    'updated_at': encodeTime(updatedAt),
   };
 
   /// Mengubah input "0812-3456 7890", "+62 812..." menjadi "6281234567890".

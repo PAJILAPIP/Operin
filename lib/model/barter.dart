@@ -1,3 +1,4 @@
+import '../core/utils/db_codec.dart';
 import 'stock_item.dart';
 
 enum BarterType {
@@ -119,8 +120,8 @@ class Barter {
     requestedNote: map['requested_note'] as String?,
     status: BarterStatus.fromName(map['status'] as String?),
     lastActorId: map['last_actor_id']! as int,
-    createdAt: DateTime.parse(map['created_at']! as String),
-    updatedAt: DateTime.parse(map['updated_at']! as String),
+    createdAt: decodeTime(map['created_at']),
+    updatedAt: decodeTime(map['updated_at']),
     proposerName: map['proposer_name'] as String?,
     receiverName: map['receiver_name'] as String?,
     offeredStockName: map['offered_stock_name'] as String?,
@@ -145,8 +146,8 @@ class Barter {
     'requested_note': requestedNote,
     'status': status.name,
     'last_actor_id': lastActorId,
-    'created_at': createdAt.toIso8601String(),
-    'updated_at': updatedAt.toIso8601String(),
+    'created_at': encodeTime(createdAt),
+    'updated_at': encodeTime(updatedAt),
   };
 
   Barter copyWith({
@@ -211,7 +212,7 @@ class BarterMessage {
     text: map['text']! as String,
     offeredQuantity: (map['offered_quantity'] as num?)?.toDouble(),
     requestedQuantity: (map['requested_quantity'] as num?)?.toDouble(),
-    createdAt: DateTime.parse(map['created_at']! as String),
+    createdAt: decodeTime(map['created_at']),
     senderName: map['sender_name'] as String?,
   );
 
@@ -222,6 +223,6 @@ class BarterMessage {
     'text': text,
     'offered_quantity': offeredQuantity,
     'requested_quantity': requestedQuantity,
-    'created_at': createdAt.toIso8601String(),
+    'created_at': encodeTime(createdAt),
   };
 }

@@ -111,6 +111,18 @@ class MatchController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Muat ulang chat barter yang pernah dibuka (dipanggil saat realtime).
+  Future<void> reloadOpenMessages() async {
+    for (final barterId in _messages.keys.toList()) {
+      try {
+        _messages[barterId] = await repository.listMessages(barterId);
+      } catch (error) {
+        debugPrint('Gagal memuat chat barter $barterId: $error');
+      }
+    }
+    notifyListeners();
+  }
+
   Future<Barter> propose(Barter barter, {String? message}) async {
     final saved = await repository.createBarter(barter, message: message);
     await load();

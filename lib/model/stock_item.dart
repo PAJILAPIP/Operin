@@ -1,3 +1,4 @@
+import '../core/utils/db_codec.dart';
 import 'food_category.dart';
 
 /// Satuan jumlah stok.
@@ -116,10 +117,10 @@ class StockItem {
     quantity: (map['quantity']! as num).toDouble(),
     unit: StockUnit.fromName(map['unit'] as String?),
     pricePerUnit: map['price_per_unit']! as int,
-    expiryDate: DateTime.parse(map['expiry_date']! as String),
+    expiryDate: decodeDate(map['expiry_date']),
     notes: map['notes'] as String?,
-    createdAt: DateTime.parse(map['created_at']! as String),
-    updatedAt: DateTime.parse(map['updated_at']! as String),
+    createdAt: decodeTime(map['created_at']),
+    updatedAt: decodeTime(map['updated_at']),
   );
 
   Map<String, Object?> toMap() => {
@@ -132,8 +133,8 @@ class StockItem {
     'price_per_unit': pricePerUnit,
     'expiry_date': _dateOnly(expiryDate),
     'notes': notes,
-    'created_at': createdAt.toIso8601String(),
-    'updated_at': updatedAt.toIso8601String(),
+    'created_at': encodeTime(createdAt),
+    'updated_at': encodeTime(updatedAt),
   };
 
   StockItem copyWith({
