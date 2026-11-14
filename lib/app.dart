@@ -6,10 +6,12 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'data/auth_repository.dart';
 import 'data/market_repository.dart';
+import 'data/match_repository.dart';
 import 'data/profile_repository.dart';
 import 'data/promotion_repository.dart';
 import 'data/stock_repository.dart';
 import 'features/market/market_controller.dart';
+import 'features/matchmaking/match_controller.dart';
 import 'features/rescue/promotion_controller.dart';
 import 'features/stock/stock_controller.dart';
 
@@ -21,6 +23,7 @@ class OperinApp extends StatefulWidget {
     this.stockRepository = const SqliteStockRepository(),
     this.promotionRepository = const SqlitePromotionRepository(),
     this.marketRepository = const SqliteMarketRepository(),
+    this.matchRepository = const SqliteMatchRepository(),
     this.clock,
   });
 
@@ -29,6 +32,7 @@ class OperinApp extends StatefulWidget {
   final StockRepository stockRepository;
   final PromotionRepository promotionRepository;
   final MarketRepository marketRepository;
+  final MatchRepository matchRepository;
 
   /// Sumber waktu "sekarang" (bisa diganti di test). Default: DateTime.now.
   final DateTime Function()? clock;
@@ -60,9 +64,15 @@ class _OperinAppState extends State<OperinApp> {
     session: _session,
     clock: widget.clock,
   );
+  late final MatchController _match = MatchController(
+    repository: widget.matchRepository,
+    session: _session,
+    stock: _stock,
+  );
 
   @override
   void dispose() {
+    _match.dispose();
     _market.dispose();
     _promotions.dispose();
     _stock.dispose();
@@ -88,14 +98,17 @@ class _OperinAppState extends State<OperinApp> {
             controller: _promotions,
             child: MarketScope(
               controller: _market,
-              child: ColoredBox(
-                color: AppColors.outerBackground,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: OperinApp.maxContentWidth,
+              child: MatchScope(
+                controller: _match,
+                child: ColoredBox(
+                  color: AppColors.outerBackground,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: OperinApp.maxContentWidth,
+                      ),
+                      child: child,
                     ),
-                    child: child,
                   ),
                 ),
               ),

@@ -12,6 +12,10 @@ import 'package:operin/data/stock_repository.dart';
 import 'package:operin/data/promotion_repository.dart';
 import 'package:operin/model/promotion.dart';
 import 'package:operin/data/market_repository.dart';
+import 'package:operin/data/match_repository.dart';
+import 'package:operin/model/barter.dart';
+import 'package:operin/model/business_category.dart';
+import 'package:operin/model/partner_profile.dart';
 import 'package:operin/model/market_listing.dart';
 import 'package:operin/model/market_order.dart';
 
@@ -24,6 +28,7 @@ Future<void> _pumpApp(
   _FakeStockRepository? stock,
   _FakePromotionRepository? promotions,
   _FakeMarketRepository? market,
+  _FakeMatchRepository? match,
 }) async {
   // Lebar ponsel, tapi cukup tinggi agar seluruh form onboarding muat
   // tanpa scroll.
@@ -38,6 +43,7 @@ Future<void> _pumpApp(
       stockRepository: stock ?? _FakeStockRepository(),
       promotionRepository: promotions ?? _FakePromotionRepository(),
       marketRepository: market ?? _FakeMarketRepository(),
+      matchRepository: match ?? _FakeMatchRepository(),
       clock: () => _today,
     ),
   );
@@ -591,8 +597,313 @@ void main() {
       expect(find.text('Terima'), findsNothing);
     });
   });
+
+  group('Matchmaking & Barter', () {
+    // Stok saya: Roti Tawar (id 1, kritis H-1) & Susu Basi (id 2, kedaluwarsa)
+    _FakeStockRepository myStock() => _FakeStockRepository()
+      ..seed([
+        _stock('Roti Tawar', DateTime(2026, 11, 15), category: FoodCategory.roti),
+        _stock('Susu Basi', DateTime(2026, 11, 12),
+            category: FoodCategory.susuOlahan),
+      ]);
+
+    _FakeMatchRepository matchRepo() => _FakeMatchRepository()
+      ..partners.addAll([
+        _partnerProfile(2, 'Dapur Bunda',
+            wants: {FoodCategory.roti},
+            distance: 1.5,
+            stocks: [
+              _stock('Kue Basah', DateTime(2026, 11, 17),
+                      category: FoodCategory.roti)
+                  .copyWith(id: 50)
+                  .withUser(2),
+            ]),
+        _partnerProfile(3, 'Kompos Hijau', role: 'waste', distance: 3),
+        _partnerProfile(4, 'Toko Jauh',
+            wants: {FoodCategory.roti}, distance: 40),
+      ]);
+
+    Future<void> pump(WidgetTester tester, _FakeMatchRepository match) =>
+        _pumpApp(
+          tester,
+          auth: _FakeAuthRepository()
+            ..user = _FakeAuthRepository.defaultUser.copyWith(role: 'seller')
+            ..sessionUserId = 1,
+          profiles: _FakeProfileRepository()..saved = _sampleProfile,
+          stock: myStock(),
+          match: match,
+        );
+
+    testWidgets('rekomendasi mitra lalu ajukan barter', (tester) async {
+      final match = matchRepo();
+      await pump(tester, match);
+
+      await tester.tap(find.text('Matchmaking B2B'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dapur Bunda'), findsOneWidget);
+      expect(find.text('COCOK'), findsOneWidget);
+      expect(find.text('Saling membutuhkan, cocok untuk barter'), findsOneWidget);
+      expect(find.text('Kompos Hijau'), findsOneWidget);
+      expect(find.text('Toko Jauh'), findsNothing); // di luar radius 10 km
+
+      await tester.tap(find.text('Ajukan Barter').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Roti Tawar (5 pcs)'), findsOneWidget);
+      expect(find.text('Kue Basah (5 pcs)'), findsOneWidget);
+
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Jumlah ditawarkan'), '3');
+      await tester.enterText(find.widgetWithText(TextField, 'Jumlah diminta'), '2');
+      await _tapButton(tester, 'Kirim Penawaran');
+
+      final barter = match.barters.single;
+      expect(barter.type, BarterType.barter);
+      expect(barter.receiverId, 2);
+      expect(barter.offeredStockId, 1);
+      expect(barter.offeredQuantity, 3);
+      expect(barter.requestedStockId, 50);
+      expect(barter.requestedQuantity, 2);
+
+      await tester.tap(find.text('Barter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dapur Bunda'), findsOneWidget);
+      expect(find.text('Menunggu'), findsOneWidget);
+    });
+
+    testWidgets('penerima menawar balik lalu pengaju menerima', (tester) async {
+      final match = matchRepo()
+        ..barters.add(Barter(
+          id: 9,
+          type: BarterType.barter,
+          proposerId: 2,
+          receiverId: 1,
+          offeredStockId: 50,
+          offeredQuantity: 4,
+          requestedStockId: 1,
+          requestedQuantity: 2,
+          lastActorId: 2,
+          createdAt: _today,
+          updatedAt: _today,
+          proposerName: 'Dapur Bunda',
+          receiverName: 'Toko Lama',
+          offeredStockName: 'Kue Basah',
+          offeredUnit: StockUnit.pcs,
+          requestedStockName: 'Roti Tawar',
+          requestedUnit: StockUnit.pcs,
+        ));
+      await pump(tester, match);
+
+      await tester.tap(find.text('Matchmaking B2B'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Barter (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Perlu jawaban Anda'), findsOneWidget);
+      await tester.tap(find.text('Dapur Bunda'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('4 pcs Kue Basah'), findsOneWidget); // Anda terima
+      expect(find.text('2 pcs Roti Tawar'), findsOneWidget); // Anda beri
+      expect(find.text('Giliran Anda menjawab.'), findsOneWidget);
+
+      // Tawar balik: minta 6 kue untuk 2 roti
+      await tester.tap(find.text('Tawar Balik'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Kue Basah (pcs)'), '6');
+      await tester.tap(find.text('Kirim Tawaran'));
+      await tester.pumpAndSettle();
+
+      expect(match.barters.single.status, BarterStatus.negotiating);
+      expect(match.barters.single.offeredQuantity, 6);
+      expect(find.text('Menunggu jawaban Dapur Bunda.'), findsOneWidget);
+      expect(find.text('Tawar Balik'), findsNothing);
+      expect(find.text('Kue Basah: 6 pcs  ⇄  Roti Tawar: 2 pcs'), findsOneWidget);
+
+      // Mitra menerima (disimulasikan) → status disepakati
+      match.barters[0] = match.barters[0].copyWith(
+        status: BarterStatus.accepted,
+        lastActorId: 2,
+      );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Matchmaking B2B'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Barter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Disepakati'), findsOneWidget);
+    });
+
+    testWidgets('stok kedaluwarsa disalurkan ke mitra daur ulang',
+        (tester) async {
+      final match = matchRepo();
+      await pump(tester, match);
+
+      await tester.tap(find.text('Penyelamatan Lapis 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salurkan ke Mitra Daur Ulang'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Salurkan ke Daur Ulang'), findsOneWidget);
+      expect(find.text('Kompos Hijau'), findsOneWidget);
+      expect(find.text('Dapur Bunda'), findsNothing);
+
+      await tester.tap(find.text('Salurkan Stok'));
+      await tester.pumpAndSettle();
+      expect(find.text('Susu Basi (5 pcs)'), findsOneWidget);
+      await _tapButton(tester, 'Ajukan Penyaluran');
+
+      final donation = match.barters.single;
+      expect(donation.type, BarterType.donation);
+      expect(donation.receiverId, 3);
+      expect(donation.offeredStockId, 2);
+      expect(donation.requestedStockId, isNull);
+    });
+  });
 }
 
+PartnerProfile _partnerProfile(
+  int id,
+  String name, {
+  String role = 'seller',
+  Set<FoodCategory> wants = const {},
+  List<StockItem> stocks = const [],
+  double? distance,
+}) => PartnerProfile(
+  userId: id,
+  name: name,
+  role: role,
+  businessCategory: BusinessCategory.warungMakan,
+  address: 'Jl. $name',
+  distanceKm: distance,
+  preferredCategories: wants,
+  stocks: stocks,
+);
+
+extension on StockItem {
+  StockItem withUser(int userId) => StockItem(
+    id: id,
+    userId: userId,
+    name: name,
+    category: category,
+    quantity: quantity,
+    unit: unit,
+    pricePerUnit: pricePerUnit,
+    expiryDate: expiryDate,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
+}
+
+class _FakeMatchRepository implements MatchRepository {
+  final List<PartnerProfile> partners = [];
+  final List<Barter> barters = [];
+  final List<BarterMessage> messages = [];
+  int _nextId = 100;
+
+  @override
+  Future<List<PartnerProfile>> listPartners({required AuthUser viewer}) async =>
+      partners.where((p) => p.userId != viewer.id).toList();
+
+  @override
+  Future<List<Barter>> listBarters(int userId) async => barters
+      .where((b) => b.proposerId == userId || b.receiverId == userId)
+      .toList();
+
+  @override
+  Future<List<BarterMessage>> listMessages(int barterId) async =>
+      messages.where((m) => m.barterId == barterId).toList();
+
+  @override
+  Future<Barter> createBarter(Barter barter, {String? message}) async {
+    final receiver = partners.where((p) => p.userId == barter.receiverId);
+    final saved = Barter(
+      id: _nextId++,
+      type: barter.type,
+      proposerId: barter.proposerId,
+      receiverId: barter.receiverId,
+      offeredStockId: barter.offeredStockId,
+      offeredQuantity: barter.offeredQuantity,
+      requestedStockId: barter.requestedStockId,
+      requestedQuantity: barter.requestedQuantity,
+      requestedNote: barter.requestedNote,
+      lastActorId: barter.lastActorId,
+      createdAt: barter.createdAt,
+      updatedAt: barter.updatedAt,
+      receiverName: receiver.isEmpty ? null : receiver.first.name,
+    );
+    barters.add(saved);
+    return saved;
+  }
+
+  int _index(int id) => barters.indexWhere((b) => b.id == id);
+
+  @override
+  Future<void> counterOffer(
+    int barterId, {
+    required int actorId,
+    required double offeredQuantity,
+    double? requestedQuantity,
+    String? message,
+    required DateTime now,
+  }) async {
+    final i = _index(barterId);
+    barters[i] = barters[i].copyWith(
+      offeredQuantity: offeredQuantity,
+      requestedQuantity: requestedQuantity,
+      status: BarterStatus.negotiating,
+      lastActorId: actorId,
+      updatedAt: now,
+    );
+    messages.add(BarterMessage(
+      id: _nextId++,
+      barterId: barterId,
+      senderId: actorId,
+      text: 'Mengajukan tawaran balik.',
+      offeredQuantity: offeredQuantity,
+      requestedQuantity: requestedQuantity,
+      createdAt: now,
+    ));
+  }
+
+  @override
+  Future<void> respond(
+    int barterId, {
+    required int actorId,
+    required bool accept,
+    required DateTime now,
+  }) async {
+    final i = _index(barterId);
+    barters[i] = barters[i].copyWith(
+      status: accept ? BarterStatus.accepted : BarterStatus.rejected,
+      lastActorId: actorId,
+    );
+  }
+
+  @override
+  Future<void> cancel(
+    int barterId, {
+    required int actorId,
+    required DateTime now,
+  }) async {
+    final i = _index(barterId);
+    barters[i] = barters[i].copyWith(status: BarterStatus.cancelled);
+  }
+
+  @override
+  Future<void> sendMessage(
+    int barterId, {
+    required int senderId,
+    required String text,
+    required DateTime now,
+  }) async => messages.add(BarterMessage(
+    id: _nextId++,
+    barterId: barterId,
+    senderId: senderId,
+    text: text,
+    createdAt: now,
+  ));
+}
 class _FakeMarketRepository implements MarketRepository {
   final List<MarketListing> listings = [];
   final List<MarketOrder> orders = [];

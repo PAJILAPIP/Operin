@@ -31,6 +31,9 @@ StockItem _item(
 );
 
 void main() {
+  // Database terpisah per file test agar aman dijalankan paralel.
+  LocalDatabase.fileName = 'test_rescue.db';
+
   const advisor = RescueAdvisor();
 
   group('RescueAdvisor', () {

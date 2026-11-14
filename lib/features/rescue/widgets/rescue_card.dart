@@ -17,7 +17,11 @@ class RescueCard extends StatelessWidget {
     this.onCreatePromo,
     this.onOpenStock,
     this.showStockName = true,
+    this.onRecycle,
   });
+
+  /// Untuk stok kedaluwarsa: buka pemilihan mitra daur ulang.
+  final VoidCallback? onRecycle;
 
   final RescueRecommendation recommendation;
   final DateTime now;
@@ -96,7 +100,20 @@ class RescueCard extends StatelessWidget {
               ),
             )
           else if (rec.action == RescueAction.recycle)
-            const _RecycleNote(),
+            onRecycle == null
+                ? const _RecycleNote()
+                : FilledButton.icon(
+                    onPressed: onRecycle,
+                    icon: const Icon(Icons.recycling, size: 18),
+                    label: const Text('Salurkan ke Mitra Daur Ulang'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
         ],
       ),
     );
@@ -207,7 +224,7 @@ class _RecycleNote extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Penyaluran ke Mitra Daur Ulang tersedia di fitur Matchmaking.',
+              'Salurkan ke mitra daur ulang untuk kompos atau pakan.',
               style: TextStyle(fontSize: 12, color: AppColors.text),
             ),
           ),

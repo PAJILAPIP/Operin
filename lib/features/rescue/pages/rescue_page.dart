@@ -53,6 +53,10 @@ class RescuePage extends StatelessWidget {
           AppRoutes.promotionForm,
           arguments: rec.item.id,
         ),
+        onRecycle: () => Navigator.of(context).pushNamed(
+          AppRoutes.matchmaking,
+          arguments: rec.item.id,
+        ),
       ),
     );
 

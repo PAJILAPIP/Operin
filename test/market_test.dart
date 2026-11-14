@@ -13,6 +13,9 @@ import 'package:operin/model/promotion.dart';
 import 'package:operin/model/stock_item.dart';
 
 void main() {
+  // Database terpisah per file test agar aman dijalankan paralel.
+  LocalDatabase.fileName = 'test_market.db';
+
   group('geo', () {
     test('jarak haversine', () {
       expect(distanceKm(-0.95, 100.35, -0.95, 100.35), 0);

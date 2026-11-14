@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../model/stock_item.dart';
+import '../../matchmaking/match_controller.dart';
 import '../../rescue/promotion_controller.dart';
 import '../../stock/stock_controller.dart';
 import '../../../widgets/section_title.dart';
@@ -22,6 +23,7 @@ class HomeTab extends StatelessWidget {
     final stock = StockScope.of(context);
     final promotions = PromotionScope.of(context);
     final rescueCount = promotions.recommendations.length;
+    final awaitingBarter = MatchScope.of(context).awaitingMeCount;
 
     // "Aksi": stok yang masih bisa dijual & belum dipromosikan → buat promo;
     // selain itu (kedaluwarsa / promo sudah jalan) → buka detail stok.
@@ -70,10 +72,12 @@ class HomeTab extends StatelessWidget {
           icon: Icons.handshake_outlined,
           iconBackground: AppColors.purple,
           title: 'Matchmaking B2B',
-          subtitle: 'Flash sale & barter sisa stok antar UMKM.',
+          subtitle: awaitingBarter > 0
+              ? '$awaitingBarter barter menunggu jawaban Anda.'
+              : 'Temukan mitra UMKM & barter sisa stok.',
           badge: 'HOT',
           accentColor: AppColors.secondary,
-          onTap: () => onNavigate(DashboardTab.pasar),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.matchmaking),
         ),
       ],
     );

@@ -95,6 +95,10 @@ class StockDetailPage extends StatelessWidget {
                         AppRoutes.promotionForm,
                         arguments: stockId,
                       ),
+                      onRecycle: () => Navigator.of(context).pushNamed(
+                        AppRoutes.matchmaking,
+                        arguments: stockId,
+                      ),
                     ),
             ),
     );

@@ -8,6 +8,9 @@ import 'package:operin/model/business_profile.dart';
 import 'package:operin/model/food_category.dart';
 
 void main() {
+  // Database terpisah per file test agar aman dijalankan paralel.
+  LocalDatabase.fileName = 'test_business_profile.db';
+
   group('BusinessProfile.normalizeWhatsapp', () {
     test('menerima berbagai format nomor Indonesia', () {
       expect(BusinessProfile.normalizeWhatsapp('081234567890'), '6281234567890');

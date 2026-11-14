@@ -8,6 +8,12 @@ class LocalDatabase {
   LocalDatabase._();
 
   static final LocalDatabase instance = LocalDatabase._();
+
+  /// Nama file database. Test mengganti nilai ini (sebelum database pertama
+  /// kali dibuka) agar tiap file test punya database sendiri dan bisa
+  /// berjalan paralel tanpa saling mengganggu.
+  @visibleForTesting
+  static String fileName = 'operin.db';
   Database? _database;
   static bool _ffiFactoryInitialized = false;
 
@@ -29,11 +35,11 @@ class LocalDatabase {
     }
 
     final databasePath = kIsWeb
-        ? 'operin.db'
-        : path.join(await getDatabasesPath(), 'operin.db');
+        ? fileName
+        : path.join(await getDatabasesPath(), fileName);
     _database = await openDatabase(
       databasePath,
-      version: 6,
+      version: 7,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -58,6 +64,7 @@ class LocalDatabase {
         await _createStockTable(database);
         await _createPromotionTable(database);
         await _createOrderTable(database);
+        await _createBarterTables(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -94,9 +101,55 @@ class LocalDatabase {
         if (oldVersion < 6) {
           await _createOrderTable(database);
         }
+        if (oldVersion < 7) {
+          await _createBarterTables(database);
+        }
       },
     );
     return _database!;
+  }
+
+  /// Barter/donasi antar-UMKM beserta pesan negosiasinya.
+  static Future<void> _createBarterTables(DatabaseExecutor database) async {
+    await database.execute('''
+      CREATE TABLE barters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        proposer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        offered_stock_id INTEGER NOT NULL
+          REFERENCES stock_items(id) ON DELETE CASCADE,
+        offered_quantity REAL NOT NULL,
+        requested_stock_id INTEGER
+          REFERENCES stock_items(id) ON DELETE SET NULL,
+        requested_quantity REAL,
+        requested_note TEXT,
+        status TEXT NOT NULL,
+        last_actor_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX idx_barter_proposer ON barters(proposer_id, updated_at)',
+    );
+    await database.execute(
+      'CREATE INDEX idx_barter_receiver ON barters(receiver_id, updated_at)',
+    );
+    await database.execute('''
+      CREATE TABLE barter_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        barter_id INTEGER NOT NULL REFERENCES barters(id) ON DELETE CASCADE,
+        sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        offered_quantity REAL,
+        requested_quantity REAL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await database.execute(
+      'CREATE INDEX idx_barter_message ON barter_messages(barter_id, id)',
+    );
   }
 
   /// Pengajuan pembelian di Pasar B2B.

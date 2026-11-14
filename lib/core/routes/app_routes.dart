@@ -6,6 +6,9 @@ import '../../features/auth/pages/signup_page.dart';
 import '../../features/auth/pages/splash_page.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
 import '../../features/market/pages/listing_detail_page.dart';
+import '../../features/matchmaking/pages/barter_detail_page.dart';
+import '../../features/matchmaking/pages/barter_form_page.dart';
+import '../../features/matchmaking/pages/matchmaking_page.dart';
 import '../../features/onboarding/pages/business_profile_page.dart';
 import '../../features/rescue/pages/promotion_form_page.dart';
 import '../../features/rescue/pages/rescue_page.dart';
@@ -44,6 +47,16 @@ class AppRoutes {
   /// Argumen wajib: id promo (int) yang tampil di Pasar B2B.
   static const String listingDetail = '/market/listing';
 
+  /// Argumen opsional: id stok kedaluwarsa (int) untuk mode "salurkan ke
+  /// mitra daur ulang".
+  static const String matchmaking = '/match';
+
+  /// Argumen wajib: [BarterFormArgs].
+  static const String barterForm = '/match/barter/new';
+
+  /// Argumen wajib: id barter (int).
+  static const String barterDetail = '/match/barter';
+
   static Map<String, WidgetBuilder> routes({
     AuthRepository authRepository = const SqliteAuthRepository(),
   }) => {
@@ -67,6 +80,15 @@ class AppRoutes {
     ),
     listingDetail: (context) => ListingDetailPage(
       promotionId: ModalRoute.of(context)!.settings.arguments! as int,
+    ),
+    matchmaking: (context) => MatchmakingPage(
+      recycleStockId: ModalRoute.of(context)?.settings.arguments as int?,
+    ),
+    barterForm: (context) => BarterFormPage(
+      args: ModalRoute.of(context)!.settings.arguments! as BarterFormArgs,
+    ),
+    barterDetail: (context) => BarterDetailPage(
+      barterId: ModalRoute.of(context)!.settings.arguments! as int,
     ),
     dashboard: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;

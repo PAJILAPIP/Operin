@@ -26,6 +26,9 @@ StockItem _item({
 );
 
 void main() {
+  // Database terpisah per file test agar aman dijalankan paralel.
+  LocalDatabase.fileName = 'test_stock.db';
+
   // Jam 23:30 untuk memastikan perhitungan hari hanya memakai tanggal.
   final now = DateTime(2026, 11, 14, 23, 30);
 

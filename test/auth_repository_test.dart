@@ -4,6 +4,9 @@ import 'package:operin/data/auth_repository.dart';
 import 'package:operin/data/local_database.dart';
 
 void main() {
+  // Database terpisah per file test agar aman dijalankan paralel.
+  LocalDatabase.fileName = 'test_auth.db';
+
   test('register stores user and login verifies password', () async {
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
