@@ -7,6 +7,9 @@
 // Body:    { "image": "<base64>", "mimeType": "image/jpeg", "today": "YYYY-MM-DD" }
 // Balasan: respons chat completions Groq apa adanya (dibaca oleh app).
 
+// Tipe runtime Deno/Supabase (agar editor mengenali `Deno`).
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const DEFAULT_MODEL = "qwen/qwen3.8-27b";
 const MAX_BASE64_LENGTH = 8_000_000; // ± 6 MB gambar
@@ -62,7 +65,7 @@ Jika foto bukan bahan makanan: {"is_food": false, "summary": "...", "items": []}
 `;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Metode tidak didukung." }, 405);
 

@@ -44,7 +44,12 @@ tersimpan di riwayat git, jadi anggap bocor dan hapus).
 
 **Lewat dashboard:** Edge Functions → **Deploy a new function** → *Via Editor*
 → nama `scan-food` → tempel isi `functions/scan-food/index.ts` → Deploy.
-Lalu Edge Functions → **Secrets** → tambah `GROQ_API_KEY` = key Groq Anda.
+Lalu Edge Functions → **Secrets** → **Add new secret**:
+
+| Kolom | Isi |
+|---|---|
+| Name | `GROQ_API_KEY` |
+| Value | key Groq Anda saja, mis. `gsk_AbC123...` (tanpa `GROQ_API_KEY=`, tanpa tanda kutip) |
 
 **Lewat CLI:**
 
