@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/routes/app_routes.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/app_card.dart';
 import '../../survey/models/user_role.dart';
@@ -12,13 +13,15 @@ class ProfileTab extends StatelessWidget {
 
   final UserRole role;
 
-  void _logout(BuildContext context) {
-    Navigator.of(context)
-        .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+  Future<void> _logout(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    await SessionScope.read(context).signOut();
+    navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = SessionScope.of(context).currentUser;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -44,10 +47,10 @@ class ProfileTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Mitra UMKM 01',
+        Text(
+          user?.fullName ?? 'Mitra UMKM',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: AppColors.text,

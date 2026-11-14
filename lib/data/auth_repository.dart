@@ -17,6 +17,16 @@ abstract interface class AuthRepository {
   });
 
   Future<AuthUser> login({required String email, required String password});
+
+  /// User dari sesi tersimpan ("Remember me"), atau null.
+  Future<AuthUser?> restoreSession();
+
+  Future<void> saveSession(int userId);
+
+  Future<void> clearSession();
+
+  /// Menyimpan peran (nama enum `UserRole`) dan mengembalikan user terbaru.
+  Future<AuthUser> updateRole(int userId, String role);
 }
 
 class AuthException implements Exception {
@@ -75,14 +85,7 @@ class SqliteAuthRepository implements AuthRepository {
         'password_hash': base64Encode(passwordHash),
         'password_salt': base64Encode(salt),
       });
-      return AuthUser(
-        id: id,
-        fullName: user.fullName,
-        email: user.email,
-        businessType: user.businessType,
-        address: user.address,
-        createdAt: createdAt,
-      );
+      return user.copyWith(id: id);
     } on DatabaseException catch (error) {
       if (error.isUniqueConstraintError()) {
         throw const AuthException('Email sudah terdaftar.');
@@ -116,6 +119,53 @@ class SqliteAuthRepository implements AuthRepository {
     }
 
     return AuthUser.fromMap(row);
+  }
+
+  @override
+  Future<AuthUser?> restoreSession() async {
+    final database = await LocalDatabase.instance.database;
+    final rows = await database.rawQuery('''
+      SELECT u.* FROM app_session s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.id = 1
+      LIMIT 1
+    ''');
+    return rows.isEmpty ? null : AuthUser.fromMap(rows.first);
+  }
+
+  @override
+  Future<void> saveSession(int userId) async {
+    final database = await LocalDatabase.instance.database;
+    await database.insert(
+      'app_session',
+      {'id': 1, 'user_id': userId},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<void> clearSession() async {
+    final database = await LocalDatabase.instance.database;
+    await database.delete('app_session');
+  }
+
+  @override
+  Future<AuthUser> updateRole(int userId, String role) async {
+    final database = await LocalDatabase.instance.database;
+    await database.update(
+      'users',
+      {'role': role},
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+    final rows = await database.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+    if (rows.isEmpty) throw const AuthException('Akun tidak ditemukan.');
+    return AuthUser.fromMap(rows.first);
   }
 
   Future<List<int>> _hashPassword(String password, List<int> salt) async {

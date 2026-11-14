@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/routes/app_routes.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/primary_button.dart';
 import '../models/user_role.dart';
@@ -15,12 +16,32 @@ class SurveyPage extends StatefulWidget {
 
 class _SurveyPageState extends State<SurveyPage> {
   UserRole? _selectedRole;
+  bool _isSaving = false;
 
-  void _continue() {
-    Navigator.of(context).pushReplacementNamed(
-      AppRoutes.dashboard,
-      arguments: _selectedRole,
-    );
+  Future<void> _continue() async {
+    final role = _selectedRole;
+    if (role == null) return;
+    final session = SessionScope.read(context);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _isSaving = true);
+    try {
+      await session.setRole(role.name);
+      if (!mounted) return;
+      navigator.pushNamedAndRemoveUntil(
+        AppRoutes.dashboard,
+        (_) => false,
+        arguments: role,
+      );
+    } catch (error) {
+      debugPrint('Gagal menyimpan peran: $error');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Gagal menyimpan peran. Coba lagi.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -66,7 +87,8 @@ class _SurveyPageState extends State<SurveyPage> {
               const SizedBox(height: 32),
               PrimaryButton(
                 label: 'Lanjutkan ke Dashboard',
-                onPressed: _selectedRole == null ? null : _continue,
+                onPressed:
+                    _selectedRole == null || _isSaving ? null : _continue,
               ),
             ],
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/routes/app_routes.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/auth_repository.dart';
 import '../../../widgets/app_logo.dart';
@@ -90,16 +91,17 @@ class _SignupPageState extends State<SignupPage> {
 
     setState(() => _isSubmitting = true);
     try {
-      await widget.authRepository.register(
+      final session = SessionScope.read(context);
+      final navigator = Navigator.of(context);
+      final user = await widget.authRepository.register(
         fullName: fullName,
         email: email,
         password: password,
         businessType: _jenisUsaha!,
         address: address,
       );
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed(AppRoutes.survey);
-      }
+      await session.signIn(user, remember: true);
+      if (mounted) AppRoutes.goHome(navigator, user);
     } on AuthException catch (error) {
       _showMessage(error.message);
     } catch (error) {

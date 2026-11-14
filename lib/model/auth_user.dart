@@ -6,6 +6,7 @@ class AuthUser {
     required this.businessType,
     required this.address,
     required this.createdAt,
+    this.role,
   });
 
   final int? id;
@@ -15,6 +16,9 @@ class AuthUser {
   final String address;
   final DateTime createdAt;
 
+  /// Nama enum `UserRole` yang dipilih di survey; null jika belum memilih.
+  final String? role;
+
   factory AuthUser.fromMap(Map<String, Object?> map) => AuthUser(
     id: map['id'] as int?,
     fullName: map['full_name']! as String,
@@ -22,6 +26,7 @@ class AuthUser {
     businessType: map['business_type']! as String,
     address: map['address']! as String,
     createdAt: DateTime.parse(map['created_at']! as String),
+    role: map['role'] as String?,
   );
 
   Map<String, Object?> toMap() => {
@@ -31,5 +36,16 @@ class AuthUser {
     'business_type': businessType,
     'address': address,
     'created_at': createdAt.toIso8601String(),
+    'role': role,
   };
+
+  AuthUser copyWith({int? id, String? role}) => AuthUser(
+    id: id ?? this.id,
+    fullName: fullName,
+    email: email,
+    businessType: businessType,
+    address: address,
+    createdAt: createdAt,
+    role: role ?? this.role,
+  );
 }

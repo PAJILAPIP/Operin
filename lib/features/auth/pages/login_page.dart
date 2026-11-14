@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/routes/app_routes.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../data/auth_repository.dart';
 import '../../../widgets/app_logo.dart';
 import '../../../widgets/app_text_field.dart';
@@ -45,10 +46,14 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isSubmitting = true);
     try {
-      await widget.authRepository.login(email: email, password: password);
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed(AppRoutes.survey);
-      }
+      final session = SessionScope.read(context);
+      final navigator = Navigator.of(context);
+      final user = await widget.authRepository.login(
+        email: email,
+        password: password,
+      );
+      await session.signIn(user, remember: _rememberMe);
+      if (mounted) AppRoutes.goHome(navigator, user);
     } on AuthException catch (error) {
       _showMessage(error.message);
     } catch (error) {
