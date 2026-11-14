@@ -1,6 +1,7 @@
 import '../core/utils/db_codec.dart';
 import '../core/utils/geo.dart';
 import '../model/auth_user.dart';
+import '../model/catalog_item.dart';
 import '../model/food_category.dart';
 import '../model/market_listing.dart';
 import '../model/market_order.dart';
@@ -25,6 +26,12 @@ abstract interface class MarketRepository {
     required DateTime now,
   });
 
+  /// Stok UMKM lain yang bisa dibeli dengan harga normal (Katalog).
+  Future<List<CatalogItem>> listCatalog({
+    required AuthUser viewer,
+    required DateTime now,
+  });
+
   /// Pengajuan pembelian yang melibatkan [userId] (sebagai pembeli/penjual).
   Future<List<MarketOrder>> listOrders(int userId);
 
@@ -32,6 +39,16 @@ abstract interface class MarketRepository {
   /// sudah berakhir atau jumlah melebihi yang tersedia.
   Future<MarketOrder> createOrder({
     required int promotionId,
+    required int buyerId,
+    required double quantity,
+    String? note,
+    required DateTime now,
+  });
+
+  /// Membuat pengajuan pembelian stok Katalog (harga normal). Melempar
+  /// [MarketException] jika stok habis/kedaluwarsa atau jumlah berlebih.
+  Future<MarketOrder> createStockOrder({
+    required int stockId,
     required int buyerId,
     required double quantity,
     String? note,
@@ -69,8 +86,36 @@ class SupabaseMarketRepository implements MarketRepository {
   }, MarketException.new);
 
   @override
-  Future<List<MarketOrder>> listOrders(int userId) => guardDb(() async {
+  Future<List<CatalogItem>> listCatalog({
+    required AuthUser viewer,
+    required DateTime now,
+  }) => guardDb(() async {
     final rows = await supabase
+        .from('catalog_items')
+        .select()
+        .neq('user_id', viewer.id!)
+        .order('expiry_date')
+        .order('name');
+    return rows.map((row) => catalogItemFromRow(row, viewer)).toList();
+  }, MarketException.new);
+
+  @override
+  Future<MarketOrder> createStockOrder({
+    required int stockId,
+    required int buyerId,
+    required double quantity,
+    String? note,
+    required DateTime now,
+  }) => guardDb(() async {
+    final row = await supabase.rpc(
+      'create_stock_order',
+      params: {'p_stock_id': stockId, 'p_quantity': quantity, 'p_note': note},
+    );
+    return MarketOrder.fromMap(Map<String, Object?>.from(row as Map));
+  }, MarketException.new);
+
+  @override
+  Future<List<MarketOrder>> listOrders(int userId) => guardDb(() async {    final rows = await supabase
         .from('order_details')
         .select()
         .or('buyer_id.eq.$userId,seller_id.eq.$userId')
@@ -133,6 +178,26 @@ class SupabaseMarketRepository implements MarketRepository {
       sellerAddress: row['seller_address']! as String,
       sellerWhatsapp: row['seller_whatsapp'] as String?,
       distanceKm: distance,
+      reservedQuantity: (row['reserved'] as num? ?? 0).toDouble(),
+    );
+  }
+
+  /// Baris view `catalog_items` → [CatalogItem] (jarak dihitung lokal).
+  static CatalogItem catalogItemFromRow(
+    Map<String, Object?> row,
+    AuthUser viewer,
+  ) {
+    final sellerLat = (row['seller_lat'] as num?)?.toDouble();
+    final sellerLng = (row['seller_lng'] as num?)?.toDouble();
+    return CatalogItem(
+      stock: StockItem.fromMap(row),
+      sellerName:
+          (row['seller_business_name'] ?? row['seller_full_name'])! as String,
+      sellerAddress: row['seller_address']! as String,
+      sellerWhatsapp: row['seller_whatsapp'] as String?,
+      distanceKm: viewer.hasLocation && sellerLat != null && sellerLng != null
+          ? distanceKm(viewer.latitude!, viewer.longitude!, sellerLat, sellerLng)
+          : null,
       reservedQuantity: (row['reserved'] as num? ?? 0).toDouble(),
     );
   }

@@ -16,6 +16,7 @@ Di **SQL Editor**, jalankan isi file berikut **berurutan** (salin-tempel → Run
 
 1. `migrations/0001_init.sql`: tabel, keamanan (RLS), view, realtime
 2. `migrations/0002_functions.sql`: transaksi pesanan & barter
+3. `migrations/0003_catalog.sql`: Katalog Pasar B2B (beli stok tanpa promo)
 
 Kalau memakai Supabase CLI: `supabase link --project-ref <ref>` lalu
 `supabase db push`.

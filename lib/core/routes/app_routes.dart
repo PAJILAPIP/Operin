@@ -6,6 +6,7 @@ import '../../features/auth/pages/signup_page.dart';
 import '../../features/auth/pages/splash_page.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
 import '../../features/impact/pages/impact_page.dart';
+import '../../features/market/pages/catalog_detail_page.dart';
 import '../../features/market/pages/listing_detail_page.dart';
 import '../../features/matchmaking/pages/barter_detail_page.dart';
 import '../../features/matchmaking/pages/barter_form_page.dart';
@@ -49,6 +50,9 @@ class AppRoutes {
   /// Argumen wajib: id promo (int) yang tampil di Pasar B2B.
   static const String listingDetail = '/market/listing';
 
+  /// Argumen wajib: id stok (int) di Katalog Pasar B2B.
+  static const String catalogDetail = '/market/catalog';
+
   /// Argumen opsional: id stok kedaluwarsa (int) untuk mode "salurkan ke
   /// mitra daur ulang".
   static const String matchmaking = '/match';
@@ -88,6 +92,9 @@ class AppRoutes {
     ),
     listingDetail: (context) => ListingDetailPage(
       promotionId: ModalRoute.of(context)!.settings.arguments! as int,
+    ),
+    catalogDetail: (context) => CatalogDetailPage(
+      stockId: ModalRoute.of(context)!.settings.arguments! as int,
     ),
     matchmaking: (context) => MatchmakingPage(
       recycleStockId: ModalRoute.of(context)?.settings.arguments as int?,

@@ -2,11 +2,12 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/session/session_controller.dart';
 import '../../data/market_repository.dart';
+import '../../model/catalog_item.dart';
 import '../../model/market_listing.dart';
 import '../../model/market_order.dart';
 
-/// Data Pasar B2B untuk user yang sedang login: listing promo UMKM lain
-/// serta pengajuan pembelian masuk & keluar.
+/// Data Pasar B2B untuk user yang sedang login: listing promo & katalog stok
+/// UMKM lain, serta pengajuan pembelian masuk & keluar.
 class MarketController extends ChangeNotifier {
   MarketController({
     required this.repository,
@@ -23,11 +24,15 @@ class MarketController extends ChangeNotifier {
 
   int? _userId;
   List<MarketListing> _listings = const [];
+  List<CatalogItem> _catalog = const [];
   List<MarketOrder> _orders = const [];
   bool _loading = false;
   Object? _error;
 
   List<MarketListing> get listings => _listings;
+
+  /// Stok UMKM lain dengan harga normal (tanpa promo).
+  List<CatalogItem> get catalog => _catalog;
   bool get isLoading => _loading;
   Object? get error => _error;
   DateTime get now => _clock();
@@ -54,6 +59,25 @@ class MarketController extends ChangeNotifier {
     return null;
   }
 
+  CatalogItem? catalogItemById(int stockId) {
+    for (final item in _catalog) {
+      if (item.stockId == stockId) return item;
+    }
+    return null;
+  }
+
+  /// Pengajuan katalog user ini yang masih menunggu untuk stok tertentu.
+  MarketOrder? pendingOrderForStock(int stockId) {
+    for (final order in outgoingOrders) {
+      if (order.isCatalogOrder &&
+          order.stockId == stockId &&
+          order.status == OrderStatus.pending) {
+        return order;
+      }
+    }
+    return null;
+  }
+
   /// Pengajuan user ini yang masih menunggu untuk promo tertentu.
   MarketOrder? pendingOrderFor(int promotionId) {
     for (final order in outgoingOrders) {
@@ -73,6 +97,7 @@ class MarketController extends ChangeNotifier {
     }
     _userId = userId;
     _listings = const [];
+    _catalog = const [];
     _orders = const [];
     _error = null;
     if (userId == null) {
@@ -92,10 +117,12 @@ class MarketController extends ChangeNotifier {
       final results = await Future.wait([
         repository.listListings(viewer: user, now: now),
         repository.listOrders(user.id!),
+        repository.listCatalog(viewer: user, now: now),
       ]);
       if (user.id != _userId) return;
       _listings = results[0] as List<MarketListing>;
       _orders = results[1] as List<MarketOrder>;
+      _catalog = results[2] as List<CatalogItem>;
     } catch (error) {
       debugPrint('Gagal memuat pasar: $error');
       _error = error;
@@ -114,6 +141,24 @@ class MarketController extends ChangeNotifier {
     if (user == null) return;
     await repository.createOrder(
       promotionId: listing.promotionId,
+      buyerId: user.id!,
+      quantity: quantity,
+      note: note,
+      now: now,
+    );
+    await load();
+  }
+
+  /// Ajukan pembelian stok katalog dengan harga normal.
+  Future<void> requestStockPurchase(
+    CatalogItem item, {
+    required double quantity,
+    String? note,
+  }) async {
+    final user = session.currentUser;
+    if (user == null) return;
+    await repository.createStockOrder(
+      stockId: item.stockId,
       buyerId: user.id!,
       quantity: quantity,
       note: note,

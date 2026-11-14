@@ -20,6 +20,7 @@ import 'package:operin/data/transaction_repository.dart';
 import 'package:operin/model/activity_entry.dart';
 import 'package:operin/model/barter.dart';
 import 'package:operin/model/business_category.dart';
+import 'package:operin/model/catalog_item.dart';
 import 'package:operin/model/partner_profile.dart';
 import 'package:operin/model/market_listing.dart';
 import 'package:operin/model/market_order.dart';
@@ -505,6 +506,7 @@ void main() {
     Future<_FakeMarketRepository> pumpMarket(
       WidgetTester tester, {
       List<MarketOrder> orders = const [],
+      List<CatalogItem> catalog = const [],
     }) async {
       final market = _FakeMarketRepository()
         ..listings.addAll([
@@ -515,7 +517,8 @@ void main() {
           listing(2, 'Roti Gandum', distance: 2.5),
           listing(3, 'Kue Jauh', distance: 12), // di luar radius 10 km
         ])
-        ..orders.addAll(orders);
+        ..orders.addAll(orders)
+        ..catalog.addAll(catalog);
       await _pumpApp(
         tester,
         auth: _FakeAuthRepository()
@@ -578,8 +581,70 @@ void main() {
       expect(find.text('Dibatalkan'), findsOneWidget);
     });
 
-    testWidgets('penjual menerima pengajuan masuk', (tester) async {
+    testWidgets('pembeli membeli stok dari Katalog dengan harga normal',
+        (tester) async {
       final market = await pumpMarket(
+        tester,
+        catalog: [
+          CatalogItem(
+            stock: StockItem(
+              id: 50,
+              userId: 2,
+              name: 'Beras Premium',
+              category: FoodCategory.bahanKering,
+              quantity: 20,
+              unit: StockUnit.kg,
+              pricePerUnit: 12000,
+              expiryDate: DateTime(2026, 12, 30),
+              createdAt: _today,
+              updatedAt: _today,
+            ),
+            sellerName: 'Toko Sebelah',
+            sellerAddress: 'Jl. Sebelah No. 1',
+            distanceKm: 1,
+            reservedQuantity: 5,
+          ),
+        ],
+      );
+
+      await tester.tap(find.text('Katalog'));
+      await tester.pumpAndSettle();
+      expect(find.text('Beras Premium'), findsOneWidget);
+      expect(find.text('Tersedia 15 kg'), findsOneWidget); // 20 - 5 dipesan
+      expect(find.text('Nasi Kotak'), findsNothing); // promo tidak di katalog
+
+      await tester.tap(find.text('Beras Premium'));
+      await tester.pumpAndSettle();
+      expect(find.text('Detail Katalog'), findsOneWidget);
+      expect(find.text('Rp 12.000 /kg'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Jumlah dibeli (kg)'),
+        '16',
+      );
+      await _tapButton(tester, 'Ajukan Pembelian');
+      expect(find.text('Jumlah melebihi yang tersedia (15 kg).'), findsOneWidget);
+      expect(market.orders, isEmpty);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Jumlah dibeli (kg)'),
+        '5',
+      );
+      await tester.pump();
+      expect(find.text('Total: Rp 60.000'), findsOneWidget);
+      await _tapButton(tester, 'Ajukan Pembelian');
+
+      final order = market.orders.single;
+      expect(order.isCatalogOrder, isTrue);
+      expect(order.stockId, 50);
+      expect(order.unitPrice, 12000);
+
+      await tester.tap(find.text('Penawaran'));
+      await tester.pumpAndSettle();
+      expect(find.text('Katalog · Ke Toko Sebelah · 14 Nov 2026'), findsOneWidget);
+    });
+
+    testWidgets('penjual menerima pengajuan masuk', (tester) async {      final market = await pumpMarket(
         tester,
         orders: [
           MarketOrder(
@@ -1350,6 +1415,7 @@ class _FakeMatchRepository implements MatchRepository {
 }
 class _FakeMarketRepository implements MarketRepository {
   final List<MarketListing> listings = [];
+  final List<CatalogItem> catalog = [];
   final List<MarketOrder> orders = [];
   int _nextId = 100;
 
@@ -1393,8 +1459,41 @@ class _FakeMarketRepository implements MarketRepository {
   }
 
   @override
-  Future<void> updateOrderStatus(
-    int orderId,
+  Future<List<CatalogItem>> listCatalog({
+    required AuthUser viewer,
+    required DateTime now,
+  }) async =>
+      catalog.where((item) => item.sellerId != viewer.id).toList();
+
+  @override
+  Future<MarketOrder> createStockOrder({
+    required int stockId,
+    required int buyerId,
+    required double quantity,
+    String? note,
+    required DateTime now,
+  }) async {
+    final item = catalog.firstWhere((i) => i.stockId == stockId);
+    final order = MarketOrder(
+      id: _nextId++,
+      stockId: stockId,
+      buyerId: buyerId,
+      sellerId: item.sellerId,
+      quantity: quantity,
+      unitPrice: item.price,
+      note: note,
+      createdAt: now,
+      updatedAt: now,
+      stockName: item.name,
+      unit: item.stock.unit,
+      sellerName: item.sellerName,
+    );
+    orders.add(order);
+    return order;
+  }
+
+  @override
+  Future<void> updateOrderStatus(    int orderId,
     OrderStatus status, {
     required DateTime now,
   }) async {

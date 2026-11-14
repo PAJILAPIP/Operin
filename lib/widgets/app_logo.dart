@@ -1,42 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
-
-/// Logo besar Operin (ikon daun + nama) untuk halaman Login & Signup.
+/// Logo Operin (gambar sudah memuat tulisan "Operin") untuk halaman splash,
+/// login, dan daftar.
 class AppLogo extends StatelessWidget {
-  const AppLogo({super.key});
+  const AppLogo({super.key, this.size = 132});
+
+  static const String asset = 'assets/images/logo.png';
+
+  /// Tinggi logo.
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.eco, color: Colors.white, size: 36),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Operin',
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-            color: AppColors.text,
-          ),
-        ),
-      ],
+    return Image.asset(
+      asset,
+      height: size,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      semanticLabel: 'Operin',
     );
   }
 }

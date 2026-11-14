@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/app_logo.dart';
 
 class DashboardHeader extends StatelessWidget implements PreferredSizeWidget {
   const DashboardHeader({super.key, required this.onAvatarTap});
@@ -33,7 +34,7 @@ class DashboardHeader extends StatelessWidget implements PreferredSizeWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.eco, size: 24, color: AppColors.primary),
+                  AppLogo(size: 32),
                   SizedBox(width: 8),
                   Text(
                     'Operin',

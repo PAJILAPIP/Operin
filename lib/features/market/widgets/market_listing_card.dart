@@ -61,15 +61,18 @@ class MarketListingCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        const Icon(Icons.storefront_outlined,
-                            size: 12, color: AppColors.muted),
+                        const Icon(
+                          Icons.storefront_outlined,
+                          size: 12,
+                          color: AppColors.muted,
+                        ),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
                             listing.distanceKm == null
                                 ? listing.sellerName
                                 : '${listing.sellerName} · '
-                                    '${formatDistance(listing.distanceKm!)}',
+                                      '${formatDistance(listing.distanceKm!)}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(

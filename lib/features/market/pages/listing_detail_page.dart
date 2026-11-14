@@ -9,6 +9,7 @@ import '../../../widgets/app_card.dart';
 import '../../../widgets/app_text_field.dart';
 import '../../../widgets/primary_button.dart';
 import '../market_controller.dart';
+import '../widgets/market_info_row.dart';
 
 /// Detail promo di Pasar B2B dan form pengajuan pembelian.
 class ListingDetailPage extends StatefulWidget {
@@ -133,8 +134,10 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
               child: Column(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(999),
@@ -163,7 +166,10 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
                   ),
                   Text(
                     listing.category.label,
-                    style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.muted,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -190,33 +196,33 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Column(
                 children: [
-                  _Info(
+                  MarketInfoRow(
                     icon: Icons.inventory_2_outlined,
                     label: 'Tersedia',
                     value: listing.isSoldOut
                         ? 'Habis'
                         : '${formatQuantity(listing.availableQuantity)} $unit',
                   ),
-                  _Info(
+                  MarketInfoRow(
                     icon: Icons.event_outlined,
                     label: 'Kedaluwarsa',
                     value: formatDate(listing.expiryDate),
                   ),
-                  _Info(
+                  MarketInfoRow(
                     icon: Icons.storefront_outlined,
                     label: 'Penjual',
                     value: listing.sellerName,
                   ),
-                  _Info(
+                  MarketInfoRow(
                     icon: Icons.location_on_outlined,
                     label: 'Alamat',
                     value: listing.distanceKm == null
                         ? listing.sellerAddress
                         : '${listing.sellerAddress}\n'
-                            '${formatDistance(listing.distanceKm!)} dari Anda',
+                              '${formatDistance(listing.distanceKm!)} dari Anda',
                   ),
                   if (listing.sellerWhatsapp != null)
-                    _Info(
+                    MarketInfoRow(
                       icon: Icons.chat_outlined,
                       label: 'WhatsApp',
                       value: '+${listing.sellerWhatsapp}',
@@ -248,8 +254,9 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
                 controller: _quantityController,
                 label: 'Jumlah dibeli ($unit)',
                 hint: formatQuantity(listing.availableQuantity),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
@@ -277,57 +284,6 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Info extends StatelessWidget {
-  const _Info({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.last = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        border: last
-            ? null
-            : const Border(bottom: BorderSide(color: AppColors.borderLight)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: AppColors.mutedLight),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 84,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 13, color: AppColors.muted),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

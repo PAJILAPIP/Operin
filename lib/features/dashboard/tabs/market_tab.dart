@@ -5,17 +5,20 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/market_repository.dart';
 import '../../../data/transaction_repository.dart';
 import '../../impact/transaction_controller.dart';
+import '../../../model/catalog_item.dart';
 import '../../../model/market_listing.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/app_text_field.dart';
 import '../../../widgets/section_title.dart';
 import '../../market/market_controller.dart';
+import '../../market/widgets/catalog_item_card.dart';
 import '../../market/widgets/market_listing_card.dart';
 import '../../market/widgets/order_tile.dart';
 
-enum _MarketSection { flashSale, sale, offers }
+enum _MarketSection { flashSale, sale, catalog, offers }
 
-/// Tab "Pasar B2B": promo surplus dari UMKM lain + pengajuan pembelian.
+/// Tab "Pasar B2B": promo surplus & katalog stok UMKM lain + pengajuan
+/// pembelian.
 class MarketTab extends StatefulWidget {
   const MarketTab({super.key});
 
@@ -74,8 +77,34 @@ class _MarketTabState extends State<MarketTab> {
     // Flash sale: yang paling cepat berakhir. Sale: yang paling dekat.
     list.sort((a, b) {
       if (flashSale) return a.promotion.endsAt.compareTo(b.promotion.endsAt);
-      return (a.distanceKm ?? double.infinity)
-          .compareTo(b.distanceKm ?? double.infinity);
+      return (a.distanceKm ?? double.infinity).compareTo(
+        b.distanceKm ?? double.infinity,
+      );
+    });
+    return list;
+  }
+
+  List<CatalogItem> _filteredCatalog(MarketController market) {
+    final query = _query.trim().toLowerCase();
+    final radius = market.radiusKm;
+    final list = market.catalog.where((item) {
+      if (query.isNotEmpty &&
+          !item.name.toLowerCase().contains(query) &&
+          !item.sellerName.toLowerCase().contains(query)) {
+        return false;
+      }
+      if (_withinRadius && radius != null && item.distanceKm != null) {
+        return item.distanceKm! <= radius;
+      }
+      return true;
+    }).toList();
+    // Yang paling dekat lebih dulu, lalu yang lebih cepat kedaluwarsa.
+    list.sort((a, b) {
+      final distance = (a.distanceKm ?? double.infinity).compareTo(
+        b.distanceKm ?? double.infinity,
+      );
+      if (distance != 0) return distance;
+      return a.stock.expiryDate.compareTo(b.stock.expiryDate);
     });
     return list;
   }
@@ -85,6 +114,7 @@ class _MarketTabState extends State<MarketTab> {
     final market = MarketScope.of(context);
     final flash = _filtered(market, true);
     final sale = _filtered(market, false);
+    final catalog = _filteredCatalog(market);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -126,6 +156,13 @@ class _MarketTabState extends State<MarketTab> {
               onTap: () => setState(() => _section = _MarketSection.sale),
             ),
             _SectionChip(
+              label: 'Katalog',
+              count: catalog.length,
+              icon: Icons.menu_book_outlined,
+              selected: _section == _MarketSection.catalog,
+              onTap: () => setState(() => _section = _MarketSection.catalog),
+            ),
+            _SectionChip(
               label: 'Penawaran',
               count: market.pendingIncomingCount,
               highlightCount: market.pendingIncomingCount > 0,
@@ -138,6 +175,8 @@ class _MarketTabState extends State<MarketTab> {
         const SizedBox(height: 16),
         if (_section == _MarketSection.offers)
           ..._buildOffers(market)
+        else if (_section == _MarketSection.catalog)
+          ..._buildCatalog(market, catalog)
         else
           ..._buildListings(
             market,
@@ -147,14 +186,12 @@ class _MarketTabState extends State<MarketTab> {
     );
   }
 
-  List<Widget> _buildListings(
-    MarketController market,
-    List<MarketListing> listings,
-  ) {
+  /// Kolom pencarian + filter radius, dipakai bersama promo & katalog.
+  List<Widget> _buildFilters(MarketController market, String hint) {
     final radius = market.radiusKm;
     return [
       AppTextField(
-        hint: 'Cari bahan atau nama toko',
+        hint: hint,
         icon: Icons.search,
         onChanged: (value) => setState(() => _query = value),
       ),
@@ -172,6 +209,45 @@ class _MarketTabState extends State<MarketTab> {
         ),
       ],
       const SizedBox(height: 12),
+    ];
+  }
+
+  List<Widget> _buildCatalog(MarketController market, List<CatalogItem> items) {
+    return [
+      ..._buildFilters(market, 'Cari bahan atau nama toko'),
+      if (market.isLoading && market.catalog.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 48),
+          child: Center(child: CircularProgressIndicator()),
+        )
+      else if (items.isEmpty)
+        const _Empty(
+          icon: Icons.menu_book_outlined,
+          title: 'Katalog masih kosong',
+          message:
+              'Stok layak jual dari UMKM lain akan muncul di sini, '
+              'bisa dibeli dengan harga normal.',
+        )
+      else
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: CatalogItemCard(
+              item: item,
+              now: market.now,
+              onTap: () => Navigator.of(context)
+                  .pushNamed(AppRoutes.catalogDetail, arguments: item.stockId),
+            ),
+          ),
+    ];
+  }
+
+  List<Widget> _buildListings(
+    MarketController market,
+    List<MarketListing> listings,
+  ) {
+    return [
+      ..._buildFilters(market, 'Cari bahan atau nama toko'),
       if (market.isLoading && market.listings.isEmpty)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 48),

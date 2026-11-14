@@ -109,8 +109,35 @@ void main() {
     expect(listing.distanceKm, closeTo(1.11, 0.01));
   });
 
-  test('baris partner_profiles → PartnerProfile', () {
-    final partner = SupabaseMatchRepository.partnerFromRow(
+  test('baris catalog_items → CatalogItem', () {
+    final item = SupabaseMarketRepository.catalogItemFromRow({
+      'id': 50,
+      'user_id': 2,
+      'name': 'Beras',
+      'category': 'bahanKering',
+      'quantity': 20,
+      'unit': 'kg',
+      'price_per_unit': 12000,
+      'expiry_date': '2026-12-30',
+      'notes': null,
+      'created_at': '2026-11-14T02:00:00+00:00',
+      'updated_at': '2026-11-14T02:00:00+00:00',
+      'seller_full_name': 'Budi',
+      'seller_business_name': 'Dapur Budi',
+      'seller_address': 'Jl B',
+      'seller_lat': null,
+      'seller_lng': null,
+      'seller_whatsapp': '6282',
+      'reserved': 5,
+    }, _viewer);
+    expect(item.stockId, 50);
+    expect(item.sellerName, 'Dapur Budi');
+    expect(item.price, 12000);
+    expect(item.availableQuantity, 15);
+    expect(item.distanceKm, isNull);
+  });
+
+  test('baris partner_profiles → PartnerProfile', () {    final partner = SupabaseMatchRepository.partnerFromRow(
       {
         'id': 2,
         'full_name': 'Budi',
@@ -142,11 +169,14 @@ void main() {
       'unit_price': 6000,
       'status': 'pending',
       'note': null,
+      'stock_id': 5,
       'created_at': '2026-11-14T02:00:00+00:00',
       'updated_at': '2026-11-14T02:00:00+00:00',
     });
     expect(order.status, OrderStatus.pending);
     expect(order.totalPrice, 24000);
+    expect(order.stockId, 5);
+    expect(order.isCatalogOrder, isFalse);
     expect(PromotionType.fromName('flashSale'), PromotionType.flashSale);
   });
 

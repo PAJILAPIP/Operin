@@ -26,11 +26,13 @@ enum OrderStatus {
   }
 }
 
-/// Pengajuan pembelian dari pembeli ke penjual atas satu promo.
+/// Pengajuan pembelian dari pembeli ke penjual: atas satu promo, atau atas
+/// stok katalog (harga normal, [promotionId] null).
 class MarketOrder {
   const MarketOrder({
     this.id,
-    required this.promotionId,
+    this.promotionId,
+    this.stockId,
     required this.buyerId,
     required this.sellerId,
     required this.quantity,
@@ -46,12 +48,14 @@ class MarketOrder {
   });
 
   final int? id;
-  final int promotionId;
+  /// Null untuk pembelian dari Katalog.
+  final int? promotionId;
+  final int? stockId;
   final int buyerId;
   final int sellerId;
   final double quantity;
 
-  /// Harga promo per satuan saat pengajuan dibuat.
+  /// Harga per satuan saat pengajuan dibuat (harga promo / harga normal).
   final int unitPrice;
   final OrderStatus status;
   final String? note;
@@ -66,9 +70,12 @@ class MarketOrder {
 
   int get totalPrice => (quantity * unitPrice).round();
 
+  bool get isCatalogOrder => promotionId == null;
+
   factory MarketOrder.fromMap(Map<String, Object?> map) => MarketOrder(
     id: map['id'] as int?,
-    promotionId: map['promotion_id']! as int,
+    promotionId: map['promotion_id'] as int?,
+    stockId: map['stock_id'] as int?,
     buyerId: map['buyer_id']! as int,
     sellerId: map['seller_id']! as int,
     quantity: (map['quantity']! as num).toDouble(),
@@ -88,6 +95,7 @@ class MarketOrder {
   Map<String, Object?> toMap() => {
     'id': id,
     'promotion_id': promotionId,
+    'stock_id': stockId,
     'buyer_id': buyerId,
     'seller_id': sellerId,
     'quantity': quantity,
@@ -102,6 +110,7 @@ class MarketOrder {
       MarketOrder(
         id: id ?? this.id,
         promotionId: promotionId,
+        stockId: stockId,
         buyerId: buyerId,
         sellerId: sellerId,
         quantity: quantity,

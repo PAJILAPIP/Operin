@@ -51,7 +51,7 @@ class OrderTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  order.stockName ?? 'Promo #${order.promotionId}',
+                  order.stockName ?? 'Pesanan #${order.id}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -62,8 +62,7 @@ class OrderTile extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -81,6 +80,7 @@ class OrderTile extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
+            '${order.isCatalogOrder ? 'Katalog · ' : ''}'
             '$counterpart · ${formatDate(order.createdAt)}',
             style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
