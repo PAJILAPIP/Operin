@@ -1,16 +1,18 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/auth_repository.dart';
+import '../../../model/business_category.dart';
 import '../../../widgets/app_logo.dart';
 import '../../../widgets/app_text_field.dart';
 import '../../../widgets/primary_button.dart';
+import '../../location/location_picker_field.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_switch_text.dart';
-import '../widgets/map_picker_dialog.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({
@@ -25,20 +27,12 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
-  static const Map<String, String> _jenisUsahaOptions = {
-    'usaha1': 'Usaha 1 (Warung Makan)',
-    'usaha2': 'Usaha 2 (Katering)',
-    'usaha3': 'Usaha 3 (Toko Buah/Sayur)',
-    'usaha4': 'Usaha 4 (Supermarket)',
-    'usaha5': 'Usaha 5 (Distributor)',
-    'lainnya': 'Lainnya...',
-  };
-
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _alamatController = TextEditingController();
-  String? _jenisUsaha;
+  BusinessCategory? _jenisUsaha;
+  LatLng? _lokasi;
   bool _isSubmitting = false;
 
   @override
@@ -48,13 +42,6 @@ class _SignupPageState extends State<SignupPage> {
     _passwordController.dispose();
     _alamatController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickLocation() async {
-    final address = await MapPickerDialog.show(context);
-    if (address != null && mounted) {
-      setState(() => _alamatController.text = address);
-    }
   }
 
   void _goToLogin() {
@@ -88,6 +75,11 @@ class _SignupPageState extends State<SignupPage> {
       _showMessage('Password minimal 8 karakter.');
       return;
     }
+    final lokasi = _lokasi;
+    if (lokasi == null) {
+      _showMessage('Tandai lokasi usaha di peta.');
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     try {
@@ -97,11 +89,13 @@ class _SignupPageState extends State<SignupPage> {
         fullName: fullName,
         email: email,
         password: password,
-        businessType: _jenisUsaha!,
+        businessType: _jenisUsaha!.name,
         address: address,
+        latitude: lokasi.latitude,
+        longitude: lokasi.longitude,
       );
       await session.signIn(user, remember: true);
-      if (mounted) AppRoutes.goHome(navigator, user);
+      if (mounted) AppRoutes.goHome(navigator, session);
     } on AuthException catch (error) {
       _showMessage(error.message);
     } catch (error) {
@@ -154,7 +148,7 @@ class _SignupPageState extends State<SignupPage> {
                       isPassword: true,
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
+                    DropdownButtonFormField<BusinessCategory>(
                       initialValue: _jenisUsaha,
                       isExpanded: true,
                       hint: const Text('Pilih Jenis Usaha'),
@@ -167,11 +161,23 @@ class _SignupPageState extends State<SignupPage> {
                         fontWeight: FontWeight.w500,
                         color: AppColors.text,
                       ),
-                      items: _jenisUsahaOptions.entries
+                      items: BusinessCategory.values
                           .map(
-                            (e) => DropdownMenuItem(
-                              value: e.key,
-                              child: Text(e.value),
+                            (category) => DropdownMenuItem(
+                              value: category,
+                              child: Row(
+                                children: [
+                                  Icon(category.icon,
+                                      size: 18, color: AppColors.muted),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Text(
+                                      category.label,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                           .toList(),
@@ -180,10 +186,14 @@ class _SignupPageState extends State<SignupPage> {
                     const SizedBox(height: 16),
                     AppTextField(
                       controller: _alamatController,
-                      hint: 'Pilih Lokasi Usaha',
+                      hint: 'Alamat Usaha',
                       icon: Icons.location_on_outlined,
-                      readOnly: true,
-                      onTap: _pickLocation,
+                      keyboardType: TextInputType.streetAddress,
+                    ),
+                    const SizedBox(height: 16),
+                    LocationPickerField(
+                      value: _lokasi,
+                      onChanged: (point) => setState(() => _lokasi = point),
                     ),
                     const SizedBox(height: 24),
                     PrimaryButton(

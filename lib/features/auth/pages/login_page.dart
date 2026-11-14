@@ -53,7 +53,7 @@ class _LoginPageState extends State<LoginPage> {
         password: password,
       );
       await session.signIn(user, remember: _rememberMe);
-      if (mounted) AppRoutes.goHome(navigator, user);
+      if (mounted) AppRoutes.goHome(navigator, session);
     } on AuthException catch (error) {
       _showMessage(error.message);
     } catch (error) {

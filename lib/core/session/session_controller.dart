@@ -1,23 +1,37 @@
 import 'package:flutter/widgets.dart';
 
 import '../../data/auth_repository.dart';
+import '../../data/profile_repository.dart';
 import '../../model/auth_user.dart';
+import '../../model/business_profile.dart';
 
-/// Menyimpan user yang sedang login dan mengelola sesi tersimpan.
+/// Menyimpan user yang sedang login beserta profil usahanya, dan mengelola
+/// sesi tersimpan.
 class SessionController extends ChangeNotifier {
-  SessionController({required this.repository});
+  SessionController({
+    required this.repository,
+    required this.profileRepository,
+  });
 
   final AuthRepository repository;
+  final ProfileRepository profileRepository;
 
   AuthUser? _currentUser;
   AuthUser? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null;
 
+  BusinessProfile? _profile;
+
+  /// Profil usaha; null jika onboarding profil belum selesai.
+  BusinessProfile? get profile => _profile;
+
   /// Memuat sesi tersimpan saat app dibuka. Mengembalikan user atau null.
   Future<AuthUser?> restore() async {
-    _currentUser = await repository.restoreSession();
+    final user = await repository.restoreSession();
+    _currentUser = user;
+    _profile = user == null ? null : await profileRepository.getProfile(user.id!);
     notifyListeners();
-    return _currentUser;
+    return user;
   }
 
   /// [remember] true → sesi disimpan ke database sehingga user tetap login
@@ -29,6 +43,7 @@ class SessionController extends ChangeNotifier {
       await repository.clearSession();
     }
     _currentUser = user;
+    _profile = await profileRepository.getProfile(user.id!);
     notifyListeners();
   }
 
@@ -39,9 +54,15 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveProfile(BusinessProfile profile) async {
+    _profile = await profileRepository.saveProfile(profile);
+    notifyListeners();
+  }
+
   Future<void> signOut() async {
     await repository.clearSession();
     _currentUser = null;
+    _profile = null;
     notifyListeners();
   }
 }

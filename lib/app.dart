@@ -5,14 +5,17 @@ import 'core/session/session_controller.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'data/auth_repository.dart';
+import 'data/profile_repository.dart';
 
 class OperinApp extends StatefulWidget {
   const OperinApp({
     super.key,
     this.authRepository = const SqliteAuthRepository(),
+    this.profileRepository = const SqliteProfileRepository(),
   });
 
   final AuthRepository authRepository;
+  final ProfileRepository profileRepository;
 
   /// Lebar maksimum tampilan (setara `max-w-md` di Tailwind).
   static const double maxContentWidth = 448;
@@ -22,8 +25,10 @@ class OperinApp extends StatefulWidget {
 }
 
 class _OperinAppState extends State<OperinApp> {
-  late final SessionController _session =
-      SessionController(repository: widget.authRepository);
+  late final SessionController _session = SessionController(
+    repository: widget.authRepository,
+    profileRepository: widget.profileRepository,
+  );
 
   @override
   void dispose() {

@@ -7,17 +7,27 @@ class AuthUser {
     required this.address,
     required this.createdAt,
     this.role,
+    this.latitude,
+    this.longitude,
   });
 
   final int? id;
   final String fullName;
   final String email;
+
+  /// Nama enum `BusinessCategory`.
   final String businessType;
   final String address;
   final DateTime createdAt;
 
   /// Nama enum `UserRole` yang dipilih di survey; null jika belum memilih.
   final String? role;
+
+  /// Titik lokasi usaha dari peta; null untuk akun lama yang belum menandai.
+  final double? latitude;
+  final double? longitude;
+
+  bool get hasLocation => latitude != null && longitude != null;
 
   factory AuthUser.fromMap(Map<String, Object?> map) => AuthUser(
     id: map['id'] as int?,
@@ -27,6 +37,8 @@ class AuthUser {
     address: map['address']! as String,
     createdAt: DateTime.parse(map['created_at']! as String),
     role: map['role'] as String?,
+    latitude: (map['latitude'] as num?)?.toDouble(),
+    longitude: (map['longitude'] as num?)?.toDouble(),
   );
 
   Map<String, Object?> toMap() => {
@@ -37,6 +49,8 @@ class AuthUser {
     'address': address,
     'created_at': createdAt.toIso8601String(),
     'role': role,
+    'latitude': latitude,
+    'longitude': longitude,
   };
 
   AuthUser copyWith({int? id, String? role}) => AuthUser(
@@ -47,5 +61,7 @@ class AuthUser {
     address: address,
     createdAt: createdAt,
     role: role ?? this.role,
+    latitude: latitude,
+    longitude: longitude,
   );
 }

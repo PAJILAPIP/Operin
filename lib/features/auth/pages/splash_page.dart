@@ -29,7 +29,7 @@ class _SplashPageState extends State<SplashPage> {
       final user = await session.restore();
       if (!mounted) return;
       if (user != null) {
-        AppRoutes.goHome(navigator, user);
+        AppRoutes.goHome(navigator, session);
         return;
       }
     } catch (error) {

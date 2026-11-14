@@ -33,7 +33,7 @@ class LocalDatabase {
         : path.join(await getDatabasesPath(), 'operin.db');
     _database = await openDatabase(
       databasePath,
-      version: 2,
+      version: 3,
       onConfigure: (database) async {
         await database.execute('PRAGMA foreign_keys = ON');
       },
@@ -48,19 +48,59 @@ class LocalDatabase {
             business_type TEXT NOT NULL,
             address TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            role TEXT
+            role TEXT,
+            latitude REAL,
+            longitude REAL
           )
         ''');
         await _createSessionTable(database);
+        await _createBusinessProfileTable(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await database.execute('ALTER TABLE users ADD COLUMN role TEXT');
           await _createSessionTable(database);
         }
+        if (oldVersion < 3) {
+          await database.execute('ALTER TABLE users ADD COLUMN latitude REAL');
+          await database.execute('ALTER TABLE users ADD COLUMN longitude REAL');
+          await _createBusinessProfileTable(database);
+          // Jenis usaha lama ("usaha1".."usaha5") → nama enum BusinessCategory.
+          const legacy = {
+            'usaha1': 'warungMakan',
+            'usaha2': 'katering',
+            'usaha3': 'tokoBuahSayur',
+            'usaha4': 'supermarket',
+            'usaha5': 'distributor',
+          };
+          for (final entry in legacy.entries) {
+            await database.update(
+              'users',
+              {'business_type': entry.value},
+              where: 'business_type = ?',
+              whereArgs: [entry.key],
+            );
+          }
+        }
       },
     );
     return _database!;
+  }
+
+  /// Profil & preferensi usaha (satu baris per user).
+  static Future<void> _createBusinessProfileTable(DatabaseExecutor database) {
+    return database.execute('''
+      CREATE TABLE business_profiles (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        business_name TEXT NOT NULL,
+        whatsapp TEXT NOT NULL,
+        preferred_categories TEXT NOT NULL,
+        radius_km INTEGER NOT NULL,
+        notify_expiry INTEGER NOT NULL,
+        notify_days_before INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
   }
 
   /// Menyimpan user yang sedang login ("Remember me"). Maksimal satu baris.

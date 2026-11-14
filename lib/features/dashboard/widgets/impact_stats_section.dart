@@ -79,12 +79,15 @@ class _SavingsCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text(
-                      'Kerugian Terselamatkan',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.text,
+                    const Flexible(
+                      child: Text(
+                        'Kerugian Terselamatkan',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
                   ],

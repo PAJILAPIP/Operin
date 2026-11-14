@@ -14,6 +14,8 @@ abstract interface class AuthRepository {
     required String password,
     required String businessType,
     required String address,
+    double? latitude,
+    double? longitude,
   });
 
   Future<AuthUser> login({required String email, required String password});
@@ -54,6 +56,8 @@ class SqliteAuthRepository implements AuthRepository {
     required String password,
     required String businessType,
     required String address,
+    double? latitude,
+    double? longitude,
   }) async {
     final database = await LocalDatabase.instance.database;
     final normalizedEmail = email.trim().toLowerCase();
@@ -77,6 +81,8 @@ class SqliteAuthRepository implements AuthRepository {
       businessType: businessType,
       address: address.trim(),
       createdAt: createdAt,
+      latitude: latitude,
+      longitude: longitude,
     );
 
     try {

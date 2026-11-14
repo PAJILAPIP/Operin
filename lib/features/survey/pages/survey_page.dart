@@ -29,11 +29,7 @@ class _SurveyPageState extends State<SurveyPage> {
     try {
       await session.setRole(role.name);
       if (!mounted) return;
-      navigator.pushNamedAndRemoveUntil(
-        AppRoutes.dashboard,
-        (_) => false,
-        arguments: role,
-      );
+      AppRoutes.goHome(navigator, session);
     } catch (error) {
       debugPrint('Gagal menyimpan peran: $error');
       messenger.showSnackBar(
